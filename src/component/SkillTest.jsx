@@ -8,14 +8,17 @@ import {
   Flag,
   BookOpen,
   Info,
-  X
+  X,
+  Loader
 } from 'lucide-react';
 import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from './AuthContext';
 
 const SkillTest = () => {
   const { testId, candidatureId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   
   // État pour gérer le test
   const [loading, setLoading] = useState(true);
@@ -29,13 +32,36 @@ const SkillTest = () => {
   const [testSubmitted, setTestSubmitted] = useState(false);
   const [score, setScore] = useState(null);
   const [confirming, setConfirming] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   
   // Charger les données du test
   useEffect(() => {
     const fetchTest = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(`/api/tests/${testId}?candidature_id=${candidatureId}`);
+        setError(null);
+
+        // Vérifier si l'utilisateur est authentifié
+        const token = localStorage.getItem('auth_token');
+        if (!token) {
+          navigate('/login');
+          return;
+        }
+        
+        // Configuration de l'en-tête d'authentification
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        
+        const response = await axios.get(`/api/tests/${testId}`, {
+          params: { candidature_id: candidatureId }
+        });
+        
+        if (response.data.score) {
+          // Le test a déjà été complété
+          setScore(response.data.score);
+          setTestSubmitted(true);
+          setLoading(false);
+          return;
+        }
         
         setTest(response.data.test);
         setQuestions(response.data.questions);
@@ -49,15 +75,15 @@ const SkillTest = () => {
         setSelectedAnswers(initialAnswers);
         
         setLoading(false);
-      } catch (error) {
-        console.error('Erreur lors du chargement du test:', error);
-        setError('Impossible de charger le test. Veuillez réessayer plus tard.');
+      } catch (err) {
+        console.error('Erreur lors du chargement du test:', err);
+        setError(err.response?.data?.message || 'Impossible de charger le test. Veuillez réessayer plus tard.');
         setLoading(false);
       }
     };
     
     fetchTest();
-  }, [testId, candidatureId]);
+  }, [testId, candidatureId, navigate]);
   
   // Gérer le compte à rebours
   useEffect(() => {
@@ -79,6 +105,8 @@ const SkillTest = () => {
   
   // Formater le temps restant
   const formatTime = (seconds) => {
+    if (!seconds && seconds !== 0) return '--:--';
+    
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
@@ -129,8 +157,21 @@ const SkillTest = () => {
   
   // Soumettre le test
   const submitTest = async () => {
+    if (submitting) return;
+    
     try {
-      setLoading(true);
+      setSubmitting(true);
+      setError(null);
+      
+      // Vérifier si l'utilisateur est authentifié
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+      
+      // Configuration de l'en-tête d'authentification
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       
       const response = await axios.post(`/api/tests/${testId}/submit`, {
         candidature_id: candidatureId,
@@ -139,11 +180,11 @@ const SkillTest = () => {
       
       setScore(response.data.score);
       setTestSubmitted(true);
-      setLoading(false);
-    } catch (error) {
-      console.error('Erreur lors de la soumission du test:', error);
-      setError('Une erreur est survenue lors de la soumission du test. Veuillez réessayer.');
-      setLoading(false);
+      setSubmitting(false);
+    } catch (err) {
+      console.error('Erreur lors de la soumission du test:', err);
+      setError(err.response?.data?.message || 'Une erreur est survenue lors de la soumission du test. Veuillez réessayer.');
+      setSubmitting(false);
     }
   };
   
@@ -157,7 +198,7 @@ const SkillTest = () => {
   };
 
   // Affichage pendant le chargement
-  if (loading && !test) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-teal-500 mb-4"></div>
@@ -382,9 +423,19 @@ const SkillTest = () => {
             {/* Bouton de soumission */}
             <button
               onClick={handleSubmit}
-              className="px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors"
+              disabled={submitting}
+              className={`px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors flex items-center ${
+                submitting ? 'opacity-70 cursor-not-allowed' : ''
+              }`}
             >
-              Terminer le test
+              {submitting ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
+                  Envoi en cours...
+                </>
+              ) : (
+                'Terminer le test'
+              )}
             </button>
           </div>
         </div>
