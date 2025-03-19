@@ -10,42 +10,69 @@ import {
   Settings,
   Menu,
   X,
-  ChevronDown
+  ChevronDown,
+  Loader
 } from 'lucide-react';
+import axios from 'axios';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from './AuthContext';
 
-const FixedNavbar = ({ userName = "Thomas Dupont", userRole = "Étudiant", userInitials = "TD" }) => {
+const FixedNavbar = () => {
+  const navigate = useNavigate();
+  const { user, isAuthenticated, logout } = useAuth();
+  
+  // États
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+  
   const profileRef = useRef(null);
   const notificationsRef = useRef(null);
   
-  // Données d'exemple pour les notifications
-  const notifications = [
-    {
-      id: 1,
-      title: "Candidature vue",
-      message: "Tech Innovations a consulté votre candidature",
-      time: "Il y a 10 minutes",
-      read: false
-    },
-    {
-      id: 2,
-      title: "Nouvel entretien",
-      message: "Digital Solutions vous invite à un entretien le 20/03/2025",
-      time: "Il y a 2 heures",
-      read: false
-    },
-    {
-      id: 3,
-      title: "Test technique",
-      message: "N'oubliez pas de compléter le test pour Web Agency",
-      time: "Hier",
-      read: true
-    }
-  ];
+  // Récupérer les données de l'utilisateur et les notifications
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (isAuthenticated) {
+        try {
+          setLoading(true);
+          
+          // Récupérer le nombre de notifications non lues
+          const notifResponse = await axios.get('/api/notifications/unread-count');
+          setUnreadNotificationsCount(notifResponse.data.count || 0);
+          
+          // Récupérer le nombre de messages non lus
+          const messagesResponse = await axios.get('/api/messages/unread-count');
+          setUnreadMessagesCount(messagesResponse.data.count || 0);
+          
+          // Récupérer les dernières notifications (limité à 5)
+          if (isNotificationsOpen) {
+            const notificationsResponse = await axios.get('/api/notifications?limit=5');
+            setNotifications(notificationsResponse.data.notifications || []);
+          }
+          
+          setLoading(false);
+        } catch (err) {
+          console.error('Erreur lors de la récupération des données:', err);
+          setError('Une erreur est survenue lors de la récupération des données.');
+          setLoading(false);
+        }
+      }
+    };
+    
+    fetchUserData();
+    
+    // Mettre en place un intervalle pour vérifier régulièrement les nouvelles notifications
+    const intervalId = setInterval(fetchUserData, 60000); // Vérifier toutes les minutes
+    
+    return () => clearInterval(intervalId);
+  }, [isAuthenticated, isNotificationsOpen]);
 
   // Fermer les menus déroulants lors du clic à l'extérieur
   useEffect(() => {
@@ -80,8 +107,99 @@ const FixedNavbar = ({ userName = "Thomas Dupont", userRole = "Étudiant", userI
     };
   }, [isMobileMenuOpen]);
 
-  // Compteur de notifications non lues
-  const unreadNotificationsCount = notifications.filter(notif => !notif.read).length;
+  // Gérer la déconnexion
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/login');
+    } catch (error) {
+      console.error('Erreur lors de la déconnexion:', error);
+    }
+  };
+
+  // Marquer toutes les notifications comme lues
+  const markAllNotificationsAsRead = async () => {
+    try {
+      await axios.patch('/api/notifications/mark-all-read');
+      
+      // Mettre à jour les notifications
+      setNotifications(notifications.map(notif => ({
+        ...notif,
+        lu: true
+      })));
+      
+      // Réinitialiser le compteur
+      setUnreadNotificationsCount(0);
+    } catch (error) {
+      console.error('Erreur lors du marquage des notifications:', error);
+    }
+  };
+
+  // Marquer une notification comme lue
+  const markNotificationAsRead = async (id) => {
+    try {
+      await axios.patch(`/api/notifications/${id}/read`);
+      
+      // Mettre à jour les notifications
+      setNotifications(notifications.map(notif => {
+        if (notif.id === id) {
+          return { ...notif, lu: true };
+        }
+        return notif;
+      }));
+      
+      // Mettre à jour le compteur
+      setUnreadNotificationsCount(Math.max(0, unreadNotificationsCount - 1));
+    } catch (error) {
+      console.error('Erreur lors du marquage de la notification:', error);
+    }
+  };
+
+  // Rechercher des offres
+  const handleSearch = (e) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/offres?search=${searchQuery}`);
+      setIsSearchOpen(false);
+      setSearchQuery('');
+    }
+  };
+
+  // Formater la date relative
+  const formatRelativeTime = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHours = Math.floor(diffMin / 60);
+    const diffDays = Math.floor(diffHours / 24);
+    
+    if (diffSec < 60) {
+      return 'À l\'instant';
+    } else if (diffMin < 60) {
+      return `Il y a ${diffMin} minute${diffMin > 1 ? 's' : ''}`;
+    } else if (diffHours < 24) {
+      return `Il y a ${diffHours} heure${diffHours > 1 ? 's' : ''}`;
+    } else if (diffDays < 7) {
+      return `Il y a ${diffDays} jour${diffDays > 1 ? 's' : ''}`;
+    } else {
+      return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+    }
+  };
+
+  // Obtenir les initiales de l'utilisateur
+  const getUserInitials = () => {
+    if (!user) return '';
+    
+    if (user.role === 'etudiant') {
+      return `${user.prenom?.charAt(0) || ''}${user.nom?.charAt(0) || ''}`;
+    } else if (user.role === 'entreprise' && user.entreprise) {
+      return user.entreprise.nom_entreprise?.charAt(0) || 'E';
+    }
+    
+    return 'U';
+  };
 
   // Liens de navigation principale
   const navLinks = [
@@ -99,18 +217,18 @@ const FixedNavbar = ({ userName = "Thomas Dupont", userRole = "Étudiant", userI
           <div className="flex">
             {/* Logo */}
             <div className="flex items-center flex-shrink-0">
-              <a href="/" className="flex items-center text-teal-600 font-semibold text-lg">
+              <Link to="/" className="flex items-center text-teal-600 font-semibold text-lg">
                 <Briefcase className="h-6 w-6 mr-2" />
                 <span>JobConnect</span>
-              </a>
+              </Link>
             </div>
             
             {/* Navigation principale - visible uniquement sur desktop */}
             <div className="hidden md:ml-8 md:flex md:items-center md:space-x-4">
               {navLinks.map((link) => (
-                <a
+                <Link
                   key={link.name}
-                  href={link.href}
+                  to={link.href}
                   className={`px-3 py-2 rounded-md text-sm font-medium ${
                     link.current
                       ? 'text-teal-600 bg-teal-50'
@@ -119,7 +237,7 @@ const FixedNavbar = ({ userName = "Thomas Dupont", userRole = "Étudiant", userI
                   aria-current={link.current ? 'page' : undefined}
                 >
                   {link.name}
-                </a>
+                </Link>
               ))}
             </div>
           </div>
@@ -154,138 +272,207 @@ const FixedNavbar = ({ userName = "Thomas Dupont", userRole = "Étudiant", userI
               {/* Formulaire de recherche étendu */}
               {isSearchOpen && (
                 <div className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-lg p-2 border border-gray-100">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
-                    <input 
-                      type="text" 
-                      placeholder="Rechercher des offres, entreprises..." 
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                      autoFocus
-                    />
-                  </div>
+                  <form onSubmit={handleSearch}>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+                      <input 
+                        type="text" 
+                        placeholder="Rechercher des offres, entreprises..." 
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                        autoFocus
+                      />
+                    </div>
+                  </form>
                 </div>
               )}
             </div>
 
-            {/* Notifications */}
-            <div className="relative" ref={notificationsRef}>
-              <button
-                className={`p-2 rounded-full hover:bg-gray-100 focus:outline-none ${isNotificationsOpen ? 'bg-gray-100 text-teal-600' : 'text-gray-500'}`}
-                onClick={() => {
-                  setIsNotificationsOpen(!isNotificationsOpen);
-                  setIsProfileOpen(false);
-                }}
-              >
-                <Bell className="h-5 w-5" />
-                {unreadNotificationsCount > 0 && (
-                  <span className="absolute top-1 right-1 block h-4 w-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">
-                    {unreadNotificationsCount}
-                  </span>
-                )}
-              </button>
-
-              {/* Panneau de notifications */}
-              {isNotificationsOpen && (
-                <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg overflow-hidden border border-gray-100">
-                  <div className="p-3 border-b border-gray-100 flex justify-between items-center">
-                    <h3 className="font-medium text-gray-800">Notifications</h3>
-                    <button className="text-xs text-teal-600 hover:text-teal-700">
-                      Tout marquer comme lu
-                    </button>
-                  </div>
-                  <div className="max-h-96 overflow-y-auto divide-y divide-gray-100">
-                    {notifications.length === 0 ? (
-                      <div className="p-4 text-center text-gray-500">
-                        Aucune notification
-                      </div>
-                    ) : (
-                      notifications.map((notif) => (
-                        <div 
-                          key={notif.id} 
-                          className={`p-3 hover:bg-gray-50 cursor-pointer ${notif.read ? '' : 'bg-blue-50 hover:bg-blue-50'}`}
-                        >
-                          <div className="flex items-start">
-                            <div className={`mt-0.5 h-2 w-2 rounded-full ${notif.read ? 'bg-gray-300' : 'bg-blue-600'}`}></div>
-                            <div className="ml-3 flex-1">
-                              <p className="text-sm font-medium text-gray-800">{notif.title}</p>
-                              <p className="text-xs text-gray-600 mt-1">{notif.message}</p>
-                              <p className="text-xs text-gray-500 mt-1">{notif.time}</p>
-                            </div>
-                          </div>
-                        </div>
-                      ))
+            {isAuthenticated && (
+              <>
+                {/* Notifications */}
+                <div className="relative" ref={notificationsRef}>
+                  <button
+                    className={`p-2 rounded-full hover:bg-gray-100 focus:outline-none ${isNotificationsOpen ? 'bg-gray-100 text-teal-600' : 'text-gray-500'}`}
+                    onClick={() => {
+                      setIsNotificationsOpen(!isNotificationsOpen);
+                      setIsProfileOpen(false);
+                    }}
+                  >
+                    <Bell className="h-5 w-5" />
+                    {unreadNotificationsCount > 0 && (
+                      <span className="absolute top-1 right-1 block h-4 w-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">
+                        {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
+                      </span>
                     )}
-                  </div>
-                  <div className="p-2 border-t border-gray-100 bg-gray-50">
-                    <a href="/notifications" className="block w-full text-center text-xs text-teal-600 hover:text-teal-700 py-1">
-                      Voir toutes les notifications
-                    </a>
-                  </div>
-                </div>
-              )}
-            </div>
+                  </button>
 
-            {/* Profil utilisateur */}
-            <div className="relative" ref={profileRef}>
-              <button
-                className="flex items-center space-x-2 rounded-full hover:bg-gray-50 p-1 focus:outline-none"
-                onClick={() => {
-                  setIsProfileOpen(!isProfileOpen);
-                  setIsNotificationsOpen(false);
-                }}
-              >
-                <div className="h-8 w-8 rounded-full bg-teal-500 text-white flex items-center justify-center text-sm font-medium">
-                  {userInitials}
-                </div>
-                <div className="hidden md:flex md:items-center">
-                  <span className="text-sm font-medium text-gray-700 mr-1">{userName}</span>
-                  <ChevronDown size={16} className="text-gray-500" />
-                </div>
-              </button>
-
-              {/* Menu du profil */}
-              {isProfileOpen && (
-                <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg overflow-hidden border border-gray-100">
-                  <div className="p-3 border-b border-gray-100">
-                    <div className="flex items-center">
-                      <div className="h-10 w-10 rounded-full bg-teal-500 text-white flex items-center justify-center text-sm font-medium">
-                        {userInitials}
+                  {/* Panneau de notifications */}
+                  {isNotificationsOpen && (
+                    <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg overflow-hidden border border-gray-100">
+                      <div className="p-3 border-b border-gray-100 flex justify-between items-center">
+                        <h3 className="font-medium text-gray-800">Notifications</h3>
+                        {unreadNotificationsCount > 0 && (
+                          <button 
+                            className="text-xs text-teal-600 hover:text-teal-700"
+                            onClick={markAllNotificationsAsRead}
+                          >
+                            Tout marquer comme lu
+                          </button>
+                        )}
                       </div>
-                      <div className="ml-3">
-                        <p className="text-sm font-medium text-gray-800">{userName}</p>
-                        <p className="text-xs text-gray-500">{userRole}</p>
+                      
+                      {loading ? (
+                        <div className="p-4 text-center">
+                          <Loader className="h-5 w-5 animate-spin mx-auto text-gray-400" />
+                          <p className="text-sm text-gray-500 mt-1">Chargement des notifications...</p>
+                        </div>
+                      ) : (
+                        <div className="max-h-96 overflow-y-auto divide-y divide-gray-100">
+                          {notifications.length === 0 ? (
+                            <div className="p-4 text-center text-gray-500">
+                              Aucune notification
+                            </div>
+                          ) : (
+                            notifications.map((notif) => (
+                              <div 
+                                key={notif.id} 
+                                className={`p-3 hover:bg-gray-50 cursor-pointer ${notif.lu ? '' : 'bg-blue-50 hover:bg-blue-50'}`}
+                                onClick={() => {
+                                  if (!notif.lu) {
+                                    markNotificationAsRead(notif.id);
+                                  }
+                                  if (notif.lien) {
+                                    navigate(notif.lien);
+                                    setIsNotificationsOpen(false);
+                                  }
+                                }}
+                              >
+                                <div className="flex items-start">
+                                  <div className={`mt-0.5 h-2 w-2 rounded-full ${notif.lu ? 'bg-gray-300' : 'bg-blue-600'}`}></div>
+                                  <div className="ml-3 flex-1">
+                                    <p className="text-sm font-medium text-gray-800">{notif.titre}</p>
+                                    <p className="text-xs text-gray-600 mt-1">{notif.contenu}</p>
+                                    <p className="text-xs text-gray-500 mt-1">{formatRelativeTime(notif.created_at)}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      )}
+                      
+                      <div className="p-2 border-t border-gray-100 bg-gray-50">
+                        <Link to="/notifications" className="block w-full text-center text-xs text-teal-600 hover:text-teal-700 py-1">
+                          Voir toutes les notifications
+                        </Link>
                       </div>
                     </div>
-                  </div>
-                  <div className="py-1">
-                    <a href="/dashboard" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                      <User className="mr-3 h-5 w-5 text-gray-500" />
-                      Mon profil
-                    </a>
-                    <a href="/candidatures" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                      <Bookmark className="mr-3 h-5 w-5 text-gray-500" />
-                      Mes candidatures
-                    </a>
-                    <a href="/messages" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                      <MessageSquare className="mr-3 h-5 w-5 text-gray-500" />
-                      Messages
-                    </a>
-                    <a href="/parametres" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                      <Settings className="mr-3 h-5 w-5 text-gray-500" />
-                      Paramètres
-                    </a>
-                  </div>
-                  <div className="py-1 border-t border-gray-100">
-                    <a href="/logout" className="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50">
-                      <LogOut className="mr-3 h-5 w-5 text-red-500" />
-                      Déconnexion
-                    </a>
-                  </div>
+                  )}
                 </div>
-              )}
-            </div>
+
+                {/* Profil utilisateur */}
+                <div className="relative" ref={profileRef}>
+                  <button
+                    className="flex items-center space-x-2 rounded-full hover:bg-gray-50 p-1 focus:outline-none"
+                    onClick={() => {
+                      setIsProfileOpen(!isProfileOpen);
+                      setIsNotificationsOpen(false);
+                    }}
+                  >
+                    <div className="h-8 w-8 rounded-full bg-teal-500 text-white flex items-center justify-center text-sm font-medium">
+                      {getUserInitials()}
+                    </div>
+                    <div className="hidden md:flex md:items-center">
+                      <span className="text-sm font-medium text-gray-700 mr-1">
+                        {user ? (user.role === 'etudiant' ? `${user.prenom} ${user.nom}` : user.entreprise?.nom_entreprise) : 'Utilisateur'}
+                      </span>
+                      <ChevronDown size={16} className="text-gray-500" />
+                    </div>
+                  </button>
+
+                  {/* Menu du profil */}
+                  {isProfileOpen && (
+                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg overflow-hidden border border-gray-100">
+                      {isAuthenticated ? (
+                        <>
+                          <div className="p-3 border-b border-gray-100">
+                            <div className="flex items-center">
+                              <div className="h-10 w-10 rounded-full bg-teal-500 text-white flex items-center justify-center text-sm font-medium">
+                                {getUserInitials()}
+                              </div>
+                              <div className="ml-3">
+                                <p className="text-sm font-medium text-gray-800">
+                                  {user.role === 'etudiant' ? `${user.prenom} ${user.nom}` : user.entreprise?.nom_entreprise}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  {user.role === 'etudiant' ? 'Étudiant' : user.role === 'entreprise' ? 'Entreprise' : user.role}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="py-1">
+                            <Link to="/dashboard" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                              <User className="mr-3 h-5 w-5 text-gray-500" />
+                              Mon profil
+                            </Link>
+                            <Link to="/candidatures" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                              <Bookmark className="mr-3 h-5 w-5 text-gray-500" />
+                              {user.role === 'etudiant' ? 'Mes candidatures' : 'Mes offres'}
+                            </Link>
+                            <Link to="/messages" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                              <MessageSquare className="mr-3 h-5 w-5 text-gray-500" />
+                              Messages
+                              {unreadMessagesCount > 0 && (
+                                <span className="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
+                                  {unreadMessagesCount}
+                                </span>
+                              )}
+                            </Link>
+                            <Link to="/parametres" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                              <Settings className="mr-3 h-5 w-5 text-gray-500" />
+                              Paramètres
+                            </Link>
+                          </div>
+                          <div className="py-1 border-t border-gray-100">
+                            <button 
+                              onClick={handleLogout}
+                              className="flex w-full items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                            >
+                              <LogOut className="mr-3 h-5 w-5 text-red-500" />
+                              Déconnexion
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="py-2">
+                          <Link to="/login" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                            <User className="mr-3 h-5 w-5 text-gray-500" />
+                            Se connecter
+                          </Link>
+                          <Link to="/registration" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                            <User className="mr-3 h-5 w-5 text-gray-500" />
+                            S'inscrire
+                          </Link>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+            
+            {!isAuthenticated && (
+              <div className="flex items-center space-x-2">
+                <Link to="/login" className="text-gray-600 hover:text-teal-600 px-3 py-2 rounded-md text-sm font-medium">
+                  Connexion
+                </Link>
+                <Link to="/registration" className="bg-teal-500 text-white px-4 py-2 rounded-lg hover:bg-teal-600 transition-all duration-300 text-sm font-medium">
+                  Inscription
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -300,18 +487,19 @@ const FixedNavbar = ({ userName = "Thomas Dupont", userRole = "Étudiant", userI
                 Navigation
               </h3>
               {navLinks.map((link) => (
-                <a
+                <Link
                   key={link.name}
-                  href={link.href}
+                  to={link.href}
                   className={`block px-3 py-2 rounded-md text-base font-medium ${
                     link.current
                       ? 'bg-teal-50 text-teal-600'
                       : 'text-gray-700 hover:bg-gray-50 hover:text-teal-600'
                   }`}
                   aria-current={link.current ? 'page' : undefined}
+                  onClick={() => setIsMobileMenuOpen(false)}
                 >
                   {link.name}
-                </a>
+                </Link>
               ))}
             </div>
 
@@ -320,71 +508,128 @@ const FixedNavbar = ({ userName = "Thomas Dupont", userRole = "Étudiant", userI
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2">
                 Recherche
               </h3>
-              <div className="relative">
+              <form onSubmit={handleSearch} className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
                 <input 
                   type="text" 
                   placeholder="Rechercher des offres, entreprises..." 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   className="block w-full pl-10 pr-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-gray-700"
                 />
-              </div>
+              </form>
             </div>
 
-            {/* Raccourcis */}
-            <div className="pt-2 pb-3">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2">
-                Raccourcis
-              </h3>
-              <div className="space-y-1">
-                <a href="/dashboard" className="flex items-center px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-teal-600">
-                  <User className="mr-3 h-5 w-5 text-gray-500" />
-                  Mon profil
-                </a>
-                <a href="/candidatures" className="flex items-center px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-teal-600">
-                  <Bookmark className="mr-3 h-5 w-5 text-gray-500" />
-                  Mes candidatures
-                </a>
-                <a href="/notifications" className="flex items-center px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-teal-600">
-                  <Bell className="mr-3 h-5 w-5 text-gray-500" />
-                  Notifications
-                  {unreadNotificationsCount > 0 && (
-                    <span className="ml-auto bg-red-500 text-white text-xs rounded-full h-5 min-w-[20px] flex items-center justify-center px-1">
-                      {unreadNotificationsCount}
-                    </span>
-                  )}
-                </a>
-                <a href="/messages" className="flex items-center px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-teal-600">
-                  <MessageSquare className="mr-3 h-5 w-5 text-gray-500" />
-                  Messages
-                </a>
-                <a href="/parametres" className="flex items-center px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-teal-600">
-                  <Settings className="mr-3 h-5 w-5 text-gray-500" />
-                  Paramètres
-                </a>
-              </div>
-            </div>
+            {isAuthenticated ? (
+              <>
+                {/* Raccourcis */}
+                <div className="pt-2 pb-3">
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2">
+                    Raccourcis
+                  </h3>
+                  <div className="space-y-1">
+                    <Link 
+                      to="/dashboard" 
+                      className="flex items-center px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-teal-600"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      <User className="mr-3 h-5 w-5 text-gray-500" />
+                      Mon profil
+                    </Link>
+                    <Link 
+                      to="/candidatures" 
+                      className="flex items-center px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-teal-600"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      <Bookmark className="mr-3 h-5 w-5 text-gray-500" />
+                      {user?.role === 'etudiant' ? 'Mes candidatures' : 'Mes offres'}
+                    </Link>
+                    <Link 
+                      to="/notifications" 
+                      className="flex items-center px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-teal-600"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      <Bell className="mr-3 h-5 w-5 text-gray-500" />
+                      Notifications
+                      {unreadNotificationsCount > 0 && (
+                        <span className="ml-auto bg-red-500 text-white text-xs rounded-full h-5 min-w-[20px] flex items-center justify-center px-1">
+                          {unreadNotificationsCount}
+                        </span>
+                      )}
+                    </Link>
+                    <Link 
+                      to="/messages" 
+                      className="flex items-center px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-teal-600"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      <MessageSquare className="mr-3 h-5 w-5 text-gray-500" />
+                      Messages
+                      {unreadMessagesCount > 0 && (
+                        <span className="ml-auto bg-red-500 text-white text-xs rounded-full h-5 min-w-[20px] flex items-center justify-center px-1">
+                          {unreadMessagesCount}
+                        </span>
+                      )}
+                    </Link>
+                    <Link 
+                      to="/parametres" 
+                      className="flex items-center px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-teal-600"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      <Settings className="mr-3 h-5 w-5 text-gray-500" />
+                      Paramètres
+                    </Link>
+                  </div>
+                </div>
 
-            {/* Informations utilisateur mobile */}
-            <div className="pt-4 pb-3 border-t border-gray-200">
-              <div className="flex items-center px-3">
-                <div className="h-10 w-10 rounded-full bg-teal-500 text-white flex items-center justify-center text-sm font-medium">
-                  {userInitials}
+                {/* Informations utilisateur mobile */}
+                <div className="pt-4 pb-3 border-t border-gray-200">
+                  <div className="flex items-center px-3">
+                    <div className="h-10 w-10 rounded-full bg-teal-500 text-white flex items-center justify-center text-sm font-medium">
+                      {getUserInitials()}
+                    </div>
+                    <div className="ml-3">
+                      <div className="text-base font-medium text-gray-800">
+                        {user?.role === 'etudiant' ? `${user.prenom} ${user.nom}` : user?.entreprise?.nom_entreprise}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        {user?.email}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-6">
+                    <button
+                      onClick={() => {
+                        handleLogout();
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className="flex items-center px-3 py-2 rounded-md text-base font-medium text-red-600 hover:bg-red-50"
+                    >
+                      <LogOut className="mr-3 h-5 w-5 text-red-500" />
+                      Déconnexion
+                    </button>
+                  </div>
                 </div>
-                <div className="ml-3">
-                  <div className="text-base font-medium text-gray-800">{userName}</div>
-                  <div className="text-sm text-gray-500">{userRole}</div>
+              </>
+            ) : (
+              <div className="pt-4 pb-3 border-t border-gray-200">
+                <div className="space-y-2">
+                  <Link 
+                    to="/login"
+                    className="block w-full text-center px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Se connecter
+                  </Link>
+                  <Link 
+                    to="/registration"
+                    className="block w-full text-center px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    S'inscrire
+                  </Link>
                 </div>
               </div>
-              <div className="mt-6">
-                <a
-                  href="/logout"
-                  className="flex items-center px-3 py-2 rounded-md text-base font-medium text-red-600 hover:bg-red-50"
-                >
-                  <LogOut className="mr-3 h-5 w-5 text-red-500" />
-                  Déconnexion
-                </a>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       )}
