@@ -12,7 +12,7 @@ import {
   BookOpen
 } from 'lucide-react';
 import axios from 'axios';
-import { useAuth } from './AuthContext';
+import { useAuth } from './Authentication/AuthContext';
 
 const StudentSkills = () => {
   const { user } = useAuth();

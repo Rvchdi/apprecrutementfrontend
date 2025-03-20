@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
-import { useAuth } from './AuthContext';
+import { useAuth } from './Authentication/AuthContext';
 
 const NotificationsCenter = () => {
   const { user } = useAuth();

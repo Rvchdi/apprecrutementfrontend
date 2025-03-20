@@ -1,11 +1,9 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Landing from "./component/Landing";
-import MultiStepRegistration from "./component/MultiStepRegistration";
-import Login from "./component/Login";
-import MinimalDashboard from "./component/MinimalDashboard";
-import CompanyDashboard from "./component/CompanyDashboard";
-import CompanyRegistration from "./component/CompanyRegistration"; // Ajout de cette importation
+import MultiStepRegistration from "./component/Authentication/MultiStepRegistration";
+import Login from "./component/Authentication/Login";
+import MinimalDashboard from "./component/Dashboard/MinimalDashboard";
 import CreateAnnouncementForm from "./component/CreateAnnouncementForm";
 import Error404 from "./component/Error404";
 import OffresEtudiant from "./component/OffreEtudiant";
@@ -16,9 +14,10 @@ import NotificationsCenter from "./component/NotificationsCenter";
 
 // ... reste du fichier inchangé
 // Import du Layout et du système d'authentification
-import MainLayout from "./component/MainLayout";
-import { AuthProvider, useAuth } from "./component/AuthContext";
-import EmailVerification from './component/EmailVerification';
+import MainLayout from "./component/Dashboard/MainLayout";
+import { AuthProvider, useAuth } from "./component/Authentication/AuthContext";
+import EmailVerification from './component/Authentication/EmailVerification';
+import OffresList from './component/Dashboard/Interfaces/OffresList';
 
 // Composant pour routes protégées avec redirection vers login si non authentifié
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
@@ -125,15 +124,15 @@ function AppRoutes() {
         </PublicRoute>
       } />
       
-      <Route path="/registration/company" element={
-        <PublicRoute restricted={true}>
-          <CompanyRegistration />
+      {/* Supprimé /registration/company car MultiStepRegistration peut le gérer */}
+      <Route path="/entreprises" element={
+        <PublicRoute>
+          <RouteWithLayout element={<OffresList />} />
         </PublicRoute>
       } />
-      
       <Route path="/offres" element={
         <PublicRoute>
-          <RouteWithLayout element={<OffresEtudiant />} />
+          <RouteWithLayout element={<OffresList />} />
         </PublicRoute>
       } />
       
@@ -145,21 +144,20 @@ function AppRoutes() {
       
       <Route path="/not-found" element={<Error404 />} />
       
-      {/* Routes qui nécessitent une authentification mais pas forcément un email vérifié */}
       <Route path="/verification" element={
         <ProtectedRoute>
           <RouteWithLayout element={<EmailVerification />} />
         </ProtectedRoute>
       } />
       
-      {/* Routes qui nécessitent une authentification et un email vérifié */}
-      
-      {/* Dashboard étudiant et fonctionnalités */}
-      <Route path="/dashboard/etudiant" element={
+      {/* Consolidé les dashboards en un seul, MinimalDashboard peut afficher le contenu en fonction du rôle */}
+      <Route path="/dashboard" element={
         <VerifiedEmailRoute>
           <RouteWithLayout element={<MinimalDashboard />} />
         </VerifiedEmailRoute>
       } />
+      
+      {/* Supprimé les routes spécifiques aux rôles, utilisez plutôt des redirections ou du contenu conditionnel */}
       
       <Route path="/skills" element={
         <VerifiedEmailRoute>
@@ -170,15 +168,6 @@ function AppRoutes() {
       <Route path="/tests/:testId/candidatures/:candidatureId" element={
         <VerifiedEmailRoute>
           <SkillTest />
-        </VerifiedEmailRoute>
-      } />
-      
-      {/* Dashboard entreprise et fonctionnalités */}
-      <Route path="/dashboard/entreprise" element={
-        <VerifiedEmailRoute>
-          <ProtectedRoute allowedRoles={['entreprise']}>
-            <RouteWithLayout element={<CompanyDashboard />} />
-          </ProtectedRoute>
         </VerifiedEmailRoute>
       } />
       
@@ -195,22 +184,6 @@ function AppRoutes() {
           <ProtectedRoute allowedRoles={['entreprise']}>
             <RouteWithLayout element={<CreateAnnouncementForm />} />
           </ProtectedRoute>
-        </VerifiedEmailRoute>
-      } />
-      
-      {/* Dashboard admin */}
-      <Route path="/dashboard/admin" element={
-        <VerifiedEmailRoute>
-          <ProtectedRoute allowedRoles={['admin']}>
-            <RouteWithLayout element={<MinimalDashboard />} />
-          </ProtectedRoute>
-        </VerifiedEmailRoute>
-      } />
-      
-      {/* Routes communes à tous les utilisateurs authentifiés */}
-      <Route path="/dashboard" element={
-        <VerifiedEmailRoute>
-          <RouteWithLayout element={<MinimalDashboard />} />
         </VerifiedEmailRoute>
       } />
       

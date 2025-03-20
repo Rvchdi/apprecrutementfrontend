@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import loginImage from '../assets/Login.png';
+import loginImage from '../../assets/Login.png';
 
 // Configuration d'axios pour les cookies CSRF et l'authentification
 axios.defaults.withCredentials = true; // Nécessaire pour les cookies Sanctum
