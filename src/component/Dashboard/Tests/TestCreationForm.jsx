@@ -13,12 +13,15 @@ import {
   AlertCircle,
   HelpCircle,
   Edit,
-  Trash2
+  Trash2,
+  Briefcase
 } from 'lucide-react';
+import { useAuth } from '../../Authentication/AuthContext';
 
 const TestCreationForm = () => {
   const navigate = useNavigate();
   const { id } = useParams(); // Pour l'édition d'un test existant
+  const { user } = useAuth();
   const isEditMode = Boolean(id);
   
   // États
@@ -26,12 +29,14 @@ const TestCreationForm = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [offres, setOffres] = useState([]);
   
   // État principal du formulaire
   const [formData, setFormData] = useState({
     titre: '',
     description: '',
     duree_minutes: 60,
+    offre_id: '',
     questions: [{
       contenu: '',
       reponses: [
@@ -40,6 +45,34 @@ const TestCreationForm = () => {
       ]
     }]
   });
+  
+  // Récupérer les offres de l'entreprise
+  useEffect(() => {
+    const fetchOffres = async () => {
+      try {
+        let url = '/api/entreprise/offres';
+        if (user?.role === 'admin') {
+          url = '/api/admin/offres';
+        }
+        
+        const response = await axios.get(url);
+        setOffres(response.data.offres || []);
+        
+        // Si c'est un nouveau test et qu'il y a des offres, sélectionner la première par défaut
+        if (!isEditMode && response.data.offres && response.data.offres.length > 0) {
+          setFormData(prev => ({
+            ...prev,
+            offre_id: response.data.offres[0].id
+          }));
+        }
+      } catch (error) {
+        console.error('Erreur lors du chargement des offres:', error);
+        setError('Impossible de charger les offres disponibles. Veuillez réessayer.');
+      }
+    };
+    
+    fetchOffres();
+  }, [user?.role, isEditMode]);
   
   // Charger le test en mode édition
   useEffect(() => {
@@ -56,6 +89,7 @@ const TestCreationForm = () => {
             titre: test.titre || '',
             description: test.description || '',
             duree_minutes: test.duree_minutes || 60,
+            offre_id: test.offre_id || '',
             questions: test.questions ? test.questions.map(q => ({
               id: q.id,
               contenu: q.contenu,
@@ -204,6 +238,7 @@ const TestCreationForm = () => {
     if (!formData.titre.trim()) return false;
     if (!formData.description.trim()) return false;
     if (formData.duree_minutes <= 0) return false;
+    if (!formData.offre_id) return false;
     
     // Vérifier que chaque question a un contenu et au moins 2 réponses valides
     for (const question of formData.questions) {
@@ -248,24 +283,25 @@ const TestCreationForm = () => {
         setSuccess('Test créé avec succès !');
         
         // Réinitialiser le formulaire après création
-        if (!isEditMode) {
-          setFormData({
-            titre: '',
-            description: '',
-            duree_minutes: 60,
-            questions: [{
-              contenu: '',
-              reponses: [
-                { contenu: '', est_correcte: true },
-                { contenu: '', est_correcte: false }
-              ]
-            }]
-          });
-        }
+        setFormData({
+          titre: '',
+          description: '',
+          duree_minutes: 60,
+          offre_id: offres.length > 0 ? offres[0].id : '',
+          questions: [{
+            contenu: '',
+            reponses: [
+              { contenu: '', est_correcte: true },
+              { contenu: '', est_correcte: false }
+            ]
+          }]
+        });
       }
       
-      // Option: rediriger vers la liste des tests
-      // navigate('/tests');
+      // Rediriger vers la liste des tests après un délai
+      setTimeout(() => {
+        navigate('/tests');
+      }, 2000);
     } catch (err) {
       console.error('Erreur lors de la sauvegarde:', err);
       setError(err.response?.data?.message || 'Une erreur est survenue lors de la sauvegarde.');
@@ -380,6 +416,35 @@ const TestCreationForm = () => {
                   />
                 </div>
               </div>
+              
+              <div>
+                <label className="block text-gray-700 text-sm font-medium mb-2">
+                  Offre associée *
+                </label>
+                <div className="relative">
+                  <Briefcase className="h-5 w-5 text-gray-400 absolute top-1/2 transform -translate-y-1/2 left-3" />
+                  <select
+                    name="offre_id"
+                    value={formData.offre_id}
+                    onChange={handleChange}
+                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent appearance-none"
+                    required
+                    disabled={isEditMode} // Ne pas permettre de changer l'offre en mode édition
+                  >
+                    <option value="">Sélectionnez une offre</option>
+                    {offres.map(offre => (
+                      <option key={offre.id} value={offre.id}>
+                        {offre.titre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {offres.length === 0 && (
+                  <p className="text-xs text-red-500 mt-1">
+                    Vous devez d'abord créer une offre avant de pouvoir y associer un test.
+                  </p>
+                )}
+              </div>
             </div>
           </div>
           
@@ -489,7 +554,7 @@ const TestCreationForm = () => {
             <button
               type="submit"
               className="px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 flex items-center"
-              disabled={saving}
+              disabled={saving || offres.length === 0}
             >
               {saving ? (
                 <>

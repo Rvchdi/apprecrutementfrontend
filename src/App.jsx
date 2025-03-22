@@ -4,7 +4,7 @@ import Landing from "./component/Landing";
 import MultiStepRegistration from "./component/Authentication/MultiStepRegistration";
 import Login from "./component/Authentication/Login";
 import MinimalDashboard from "./component/Dashboard/MinimalDashboard";
-import CreateAnnouncementForm from "./component/CreateAnnouncementForm";
+import CreateAnnouncementForm from "./component/CreateOffreForm";
 import Error404 from "./component/Error404";
 import OffresEtudiant from "./component/OffreEtudiant";
 import JobDetail from "./component/JobDetail";
@@ -12,12 +12,14 @@ import SkillTest from "./component/SkillTest";
 import StudentSkills from "./component/StudentSkills";
 import NotificationsCenter from "./component/NotificationsCenter";
 
-// ... reste du fichier inchangé
 // Import du Layout et du système d'authentification
 import MainLayout from "./component/Dashboard/MainLayout";
 import { AuthProvider, useAuth } from "./component/Authentication/AuthContext";
 import EmailVerification from './component/Authentication/EmailVerification';
 import OffresList from './component/Dashboard/Interfaces/OffresList';
+import TestsList from './component/Dashboard/Tests/TestsList';
+import TestCreationForm from './component/Dashboard/Tests/TestCreationForm';
+import CreateOffreForm from './component/CreateOffreForm';
 
 // Composant pour routes protégées avec redirection vers login si non authentifié
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
@@ -157,11 +159,26 @@ function AppRoutes() {
         </VerifiedEmailRoute>
       } />
       
-      {/* Supprimé les routes spécifiques aux rôles, utilisez plutôt des redirections ou du contenu conditionnel */}
-      
-      <Route path="/skills" element={
+      {/* Gestion des tests */}
+      <Route path="/tests" element={
         <VerifiedEmailRoute>
-          <RouteWithLayout element={<StudentSkills />} />
+          <RouteWithLayout element={<TestsList />} />
+        </VerifiedEmailRoute>
+      } />
+      
+      <Route path="/tests/create" element={
+        <VerifiedEmailRoute>
+          <ProtectedRoute allowedRoles={['entreprise', 'admin']}>
+            <RouteWithLayout element={<TestCreationForm />} />
+          </ProtectedRoute>
+        </VerifiedEmailRoute>
+      } />
+      
+      <Route path="/tests/:id/edit" element={
+        <VerifiedEmailRoute>
+          <ProtectedRoute allowedRoles={['entreprise', 'admin']}>
+            <RouteWithLayout element={<TestCreationForm />} />
+          </ProtectedRoute>
         </VerifiedEmailRoute>
       } />
       
@@ -171,10 +188,16 @@ function AppRoutes() {
         </VerifiedEmailRoute>
       } />
       
-      <Route path="/create-announcement" element={
+      <Route path="/skills" element={
+        <VerifiedEmailRoute>
+          <RouteWithLayout element={<StudentSkills />} />
+        </VerifiedEmailRoute>
+      } />
+      
+      <Route path="/create-offer" element={
         <VerifiedEmailRoute>
           <ProtectedRoute allowedRoles={['entreprise']}>
-            <RouteWithLayout element={<CreateAnnouncementForm />} />
+            <RouteWithLayout element={<CreateOffreForm />} />
           </ProtectedRoute>
         </VerifiedEmailRoute>
       } />
