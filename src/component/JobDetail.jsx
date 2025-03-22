@@ -1,52 +1,51 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Briefcase,
-  MapPin,
-  Calendar,
-  Clock,
-  CreditCard,
-  Building,
-  Globe,
-  Users,
-  Check,
-  FileCheck,
-  Tag,
-  AlertCircle,
-  ChevronLeft,
-  Share2,
-  Bookmark,
-  User,
-  FileText,
-  Eye,
-  X,
-  Send
-} from 'lucide-react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
-import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from './Authentication/AuthContext';
+import { 
+  Briefcase, 
+  MapPin, 
+  Calendar, 
+  Clock, 
+  Building, 
+  CheckCircle, 
+  AlertCircle, 
+  Send, 
+  ChevronLeft, 
+  Star, 
+  Users, 
+  Tag, 
+  Book,
+  Award,
+  Link as LinkIcon
+} from 'lucide-react';
+import MainLayout from './Dashboard/MainLayout';
 
 const JobDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user, isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   
-  // États
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [offre, setOffre] = useState(null);
   const [entreprise, setEntreprise] = useState(null);
   const [similarOffres, setSimilarOffres] = useState([]);
-  const [showApplyModal, setShowApplyModal] = useState(false);
-  const [lettreMotivation, setLettreMotivation] = useState('');
-  const [candidatureSubmitting, setCandidatureSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [candidatureStatus, setCandidatureStatus] = useState(null);
-  const [savedStatus, setSavedStatus] = useState(false);
   
-  // Chargement de l'offre
+  // États pour la modal de candidature
+  const [showModal, setShowModal] = useState(false);
+  const [lettreMotivation, setLettreMotivation] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  
+  // Récupérer les détails de l'offre
   useEffect(() => {
-    const fetchOffre = async () => {
+    const fetchOffreDetails = async () => {
       try {
         setLoading(true);
+        setError(null);
         
         const response = await axios.get(`/api/offres/${id}`);
         
@@ -54,654 +53,631 @@ const JobDetail = () => {
         setEntreprise(response.data.entreprise);
         setSimilarOffres(response.data.similar_offres || []);
         
-        // Vérifier si l'utilisateur a déjà postulé
-        if (isAuthenticated && user?.role === 'etudiant') {
-          const statusResponse = await axios.get(`/api/offres/${id}/candidature-status`);
-          setCandidatureStatus(statusResponse.data.status);
-          setSavedStatus(statusResponse.data.saved || false);
+        if (response.data.candidature_status) {
+          setCandidatureStatus(response.data.candidature_status);
         }
         
         setLoading(false);
-      } catch (error) {
-        console.error('Erreur lors du chargement de l\'offre:', error);
-        setError('Une erreur est survenue lors du chargement de l\'offre.');
+      } catch (err) {
+        console.error('Erreur lors du chargement des détails de l\'offre:', err);
+        setError('Une erreur est survenue lors du chargement des détails de l\'offre. Veuillez réessayer.');
         setLoading(false);
       }
     };
     
-    fetchOffre();
-  }, [id, isAuthenticated, user]);
+    fetchOffreDetails();
+  }, [id]);
   
-  // Formatter la date
+  // Formater la date
   const formatDate = (dateString) => {
-    const options = { day: 'numeric', month: 'long', year: 'numeric' };
-    return new Date(dateString).toLocaleDateString('fr-FR', options);
-  };
-  
-  // Sauvegarder/retirer des favoris
-  const toggleSaveOffre = async () => {
-    if (!isAuthenticated) {
-      navigate('/login');
-      return;
-    }
+    if (!dateString) return 'Non spécifiée';
     
-    try {
-      if (savedStatus) {
-        await axios.delete(`/api/offres/${id}/save`);
-      } else {
-        await axios.post(`/api/offres/${id}/save`);
-      }
-      
-      setSavedStatus(!savedStatus);
-    } catch (error) {
-      console.error('Erreur lors de la sauvegarde de l\'offre:', error);
-      setError('Une erreur est survenue lors de la sauvegarde de l\'offre.');
-    }
+    const date = new Date(dateString);
+    return date.toLocaleDateString('fr-FR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
   };
   
-  // Partager l'offre
-  const shareOffre = () => {
-    if (navigator.share) {
-      navigator.share({
-        title: offre.titre,
-        text: `Découvrez cette offre : ${offre.titre} chez ${entreprise.nom_entreprise}`,
-        url: window.location.href
-      })
-      .catch(err => console.error('Erreur lors du partage:', err));
-    } else {
-      // Copier le lien dans le presse-papier
-      navigator.clipboard.writeText(window.location.href)
-        .then(() => {
-          alert('Lien copié dans le presse-papier !');
-        })
-        .catch(err => console.error('Erreur lors de la copie:', err));
-    }
+  // Obtenir une couleur pour le niveau
+  const getNiveauColor = (niveau) => {
+    if (!niveau) return 'bg-gray-100 text-gray-700';
+    
+    const niveaux = {
+      'Débutant': 'bg-green-100 text-green-700',
+      'Bac': 'bg-blue-100 text-blue-700',
+      'Bac+1': 'bg-blue-100 text-blue-700',
+      'Bac+2': 'bg-indigo-100 text-indigo-700',
+      'Bac+3': 'bg-indigo-100 text-indigo-700',
+      'Bac+4': 'bg-purple-100 text-purple-700',
+      'Bac+5': 'bg-purple-100 text-purple-700',
+      'Doctorat': 'bg-pink-100 text-pink-700'
+    };
+    
+    return niveaux[niveau] || 'bg-gray-100 text-gray-700';
+  };
+  
+  // Obtenir une couleur pour le type d'offre
+  const getTypeColor = (type) => {
+    if (!type) return 'bg-gray-100 text-gray-700';
+    
+    const types = {
+      'stage': 'bg-blue-100 text-blue-700',
+      'emploi': 'bg-green-100 text-green-700',
+      'alternance': 'bg-indigo-100 text-indigo-700'
+    };
+    
+    return types[type] || 'bg-gray-100 text-gray-700';
+  };
+  
+  // Traduire le type d'offre
+  const translateType = (type) => {
+    if (!type) return 'Non spécifié';
+    
+    const translations = {
+      'stage': 'Stage',
+      'emploi': 'Emploi',
+      'alternance': 'Alternance'
+    };
+    
+    return translations[type] || type;
+  };
+  
+  // Traduire le statut de candidature
+  const translateCandidatureStatus = (status) => {
+    if (!status) return '';
+    
+    const translations = {
+      'en_attente': 'En attente',
+      'vue': 'Vue',
+      'entretien': 'Entretien',
+      'acceptee': 'Acceptée',
+      'refusee': 'Refusée'
+    };
+    
+    return translations[status] || status;
+  };
+  
+  // Obtenir une couleur pour le statut de candidature
+  const getCandidatureStatusColor = (status) => {
+    if (!status) return '';
+    
+    const colors = {
+      'en_attente': 'bg-blue-100 text-blue-700',
+      'vue': 'bg-indigo-100 text-indigo-700',
+      'entretien': 'bg-purple-100 text-purple-700',
+      'acceptee': 'bg-green-100 text-green-700',
+      'refusee': 'bg-red-100 text-red-700'
+    };
+    
+    return colors[status] || 'bg-gray-100 text-gray-700';
   };
   
   // Soumettre une candidature
-  const submitCandidature = async () => {
-    if (!isAuthenticated) {
-      navigate('/login');
+  const handleSubmitCandidature = async (e) => {
+    e.preventDefault();
+    
+    if (lettreMotivation.trim().length < 100) {
+      setErrorMessage('Veuillez rédiger une lettre de motivation d\'au moins 100 caractères.');
       return;
     }
     
     try {
-      setCandidatureSubmitting(true);
+      setSubmitting(true);
+      setErrorMessage('');
       
-      await axios.post(`/api/offres/${id}/postuler`, {
+      const response = await axios.post(`/api/offres/${id}/postuler`, {
         lettre_motivation: lettreMotivation
       });
       
-      setCandidatureSubmitting(false);
-      setCandidatureStatus('en_attente');
-      setShowApplyModal(false);
+      setSuccessMessage('Votre candidature a été envoyée avec succès !');
+      setCandidatureStatus({
+        status: 'en_attente',
+        date_candidature: new Date().toISOString()
+      });
       
-      // Réinitialiser le formulaire
-      setLettreMotivation('');
-    } catch (error) {
-      console.error('Erreur lors de la soumission de la candidature:', error);
-      setError('Une erreur est survenue lors de la soumission de la candidature.');
-      setCandidatureSubmitting(false);
+      // Fermer la modal après quelques secondes
+      setTimeout(() => {
+        setShowModal(false);
+        
+        // Rediriger vers la page de candidature si un test est requis
+        if (response.data.test_required) {
+          navigate(`/candidatures/${response.data.candidature.id}`);
+        }
+      }, 2000);
+    } catch (err) {
+      console.error('Erreur lors de l\'envoi de la candidature:', err);
+      
+      if (err.response?.data?.code === 'CV_REQUIRED') {
+        setErrorMessage('Vous devez télécharger votre CV avant de postuler. Veuillez compléter votre profil.');
+      } else {
+        setErrorMessage(err.response?.data?.message || 'Une erreur est survenue lors de l\'envoi de votre candidature.');
+      }
+    } finally {
+      setSubmitting(false);
     }
   };
   
-  // Redirection vers le test de compétences
-  const startSkillTest = () => {
-    if (offre && candidatureStatus) {
-      navigate(`/tests/${offre.test_id}/candidatures/${candidatureStatus.candidature_id}`);
-    }
+  // Déterminer si l'utilisateur peut postuler
+  const canApply = () => {
+    if (!isAuthenticated) return false;
+    if (user.role !== 'etudiant') return false;
+    if (candidatureStatus) return false; // Déjà postulé
+    if (offre?.entreprise?.user_id === user.id) return false; // C'est son offre
+    return true;
   };
-
-  // Affichage pendant le chargement
+  
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-screen bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-teal-500"></div>
-      </div>
-    );
-  }
-
-  // Affichage en cas d'erreur
-  if (error || !offre) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-6 text-center">
-          <AlertCircle size={48} className="mx-auto text-red-500 mb-4" />
-          <h2 className="text-xl font-semibold text-gray-800 mb-2">Erreur</h2>
-          <p className="text-gray-600 mb-4">{error || "Cette offre n'existe pas ou a été supprimée."}</p>
-          <Link 
-            to="/offres"
-            className="px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors"
-          >
-            Découvrir d'autres offres
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-gray-50 pb-12">
-      {/* Hero section avec informations principales */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-5xl mx-auto px-4 py-6">
-          <Link 
-            to="/offres"
-            className="inline-flex items-center text-gray-600 hover:text-teal-600 mb-4"
-          >
-            <ChevronLeft size={16} className="mr-1" />
-            Retour aux offres
-          </Link>
-          
-          <div className="flex flex-col md:flex-row md:items-start md:justify-between">
-            <div className="flex-1">
-              <h1 className="text-2xl font-bold text-gray-800 mb-2">{offre.titre}</h1>
+      <MainLayout>
+        <div className="container mx-auto px-4 py-8">
+          <div className="max-w-4xl mx-auto">
+            <div className="animate-pulse">
+              <div className="h-8 bg-gray-200 rounded w-3/4 mb-4"></div>
+              <div className="h-4 bg-gray-200 rounded w-1/2 mb-6"></div>
               
-              <div className="flex items-center mb-4">
-                <div className="h-10 w-10 rounded-lg bg-gray-100 mr-3 flex items-center justify-center">
-                  {entreprise.logo ? (
-                    <img
-                      src={entreprise.logo}
-                      alt={entreprise.nom_entreprise}
-                      className="h-8 w-8 object-contain"
-                    />
-                  ) : (
-                    <Building size={20} className="text-gray-400" />
-                  )}
-                </div>
-                <div>
-                  <h2 className="font-medium text-gray-800">{entreprise.nom_entreprise}</h2>
-                  <p className="text-sm text-gray-500">{entreprise.secteur_activite}</p>
-                </div>
-              </div>
-              
-              <div className="flex flex-wrap gap-4 text-sm text-gray-600">
-                <div className="flex items-center">
-                  <MapPin size={16} className="mr-1" />
-                  {offre.localisation}
-                </div>
-                <div className="flex items-center">
-                  <Calendar size={16} className="mr-1" />
-                  Début: {formatDate(offre.date_debut)}
-                </div>
-                <div className="flex items-center">
-                  {offre.type === 'stage' ? (
-                    <Briefcase size={16} className="mr-1" />
-                  ) : offre.type === 'alternance' ? (
-                    <Users size={16} className="mr-1" />
-                  ) : (
-                    <Building size={16} className="mr-1" />
-                  )}
-                  {offre.type === 'stage' ? 'Stage' : offre.type === 'alternance' ? 'Alternance' : 'Emploi'}
-                </div>
-                {offre.duree > 0 && (
-                  <div className="flex items-center">
-                    <Clock size={16} className="mr-1" />
-                    {offre.duree} {offre.duree > 1 ? 'mois' : 'mois'}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div className="col-span-2">
+                  <div className="bg-white rounded-lg shadow-sm p-6">
+                    <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
+                    <div className="space-y-2">
+                      <div className="h-4 bg-gray-200 rounded w-full"></div>
+                      <div className="h-4 bg-gray-200 rounded w-full"></div>
+                      <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                    </div>
                   </div>
-                )}
-                {offre.remuneration && (
-                  <div className="flex items-center">
-                    <CreditCard size={16} className="mr-1" />
-                    {new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(offre.remuneration)}
-                    {offre.type === 'alternance' ? '/an' : offre.type === 'stage' ? '/mois' : '/an'}
+                </div>
+                
+                <div className="col-span-1">
+                  <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+                    <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
+                    <div className="space-y-3">
+                      <div className="h-4 bg-gray-200 rounded w-full"></div>
+                      <div className="h-4 bg-gray-200 rounded w-full"></div>
+                      <div className="h-4 bg-gray-200 rounded w-full"></div>
+                    </div>
                   </div>
-                )}
+                </div>
               </div>
             </div>
-            
-            <div className="mt-6 md:mt-0 flex flex-col md:items-end space-y-3">
-              {/* Actions */}
-              <div className="flex space-x-2">
-                <button
-                  onClick={toggleSaveOffre}
-                  className={`p-2 rounded-full ${
-                    savedStatus 
-                      ? 'bg-amber-100 text-amber-600' 
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+  
+  if (error) {
+    return (
+      <MainLayout>
+        <div className="container mx-auto px-4 py-8">
+          <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-sm p-6">
+            <div className="flex items-start text-red-600">
+              <AlertCircle className="mt-0.5 mr-2" size={20} />
+              <div>
+                <h2 className="text-lg font-medium">Une erreur est survenue</h2>
+                <p className="text-red-600 mt-1">{error}</p>
+                <button 
+                  onClick={() => navigate(-1)} 
+                  className="mt-4 flex items-center text-blue-600 hover:text-blue-800"
                 >
-                  <Bookmark size={20} fill={savedStatus ? 'currentColor' : 'none'} />
-                </button>
-                <button
-                  onClick={shareOffre}
-                  className="p-2 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200"
-                >
-                  <Share2 size={20} />
+                  <ChevronLeft size={16} className="mr-1" />
+                  Retour aux offres
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+  
+  if (!offre) {
+    return (
+      <MainLayout>
+        <div className="container mx-auto px-4 py-8">
+          <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-sm p-6">
+            <div className="flex items-start">
+              <AlertCircle className="mt-0.5 mr-2 text-yellow-500" size={20} />
+              <div>
+                <h2 className="text-lg font-medium">Offre non trouvée</h2>
+                <p className="text-gray-600 mt-1">L'offre que vous recherchez n'existe pas ou a été supprimée.</p>
+                <button 
+                  onClick={() => navigate('/offres')} 
+                  className="mt-4 flex items-center text-blue-600 hover:text-blue-800"
+                >
+                  <ChevronLeft size={16} className="mr-1" />
+                  Retour aux offres
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+  
+  return (
+    <MainLayout>
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-4xl mx-auto">
+          {/* En-tête */}
+          <div className="mb-6">
+            <div className="flex items-center mb-2">
+              <button 
+                onClick={() => navigate(-1)} 
+                className="text-gray-500 hover:text-gray-700 mr-2"
+              >
+                <ChevronLeft size={20} />
+              </button>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">{offre.titre}</h1>
+            </div>
+            
+            <div className="flex flex-wrap items-center text-gray-600 gap-3 mt-2">
+              <div className="flex items-center">
+                <Building size={16} className="mr-1" />
+                <span>{entreprise?.nom_entreprise || 'Entreprise non spécifiée'}</span>
+              </div>
               
-              {/* Bouton de candidature */}
-              {user?.role === 'etudiant' ? (
-                candidatureStatus ? (
-                  <div>
-                    <div className={`px-4 py-2 rounded-lg ${
-                      candidatureStatus.status === 'en_attente' ? 'bg-blue-100 text-blue-800' :
-                      candidatureStatus.status === 'vue' ? 'bg-indigo-100 text-indigo-800' :
-                      candidatureStatus.status === 'entretien' ? 'bg-purple-100 text-purple-800' :
-                      candidatureStatus.status === 'acceptee' ? 'bg-green-100 text-green-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      <div className="font-medium">
-                        {candidatureStatus.status === 'en_attente' ? 'Candidature en attente' :
-                        candidatureStatus.status === 'vue' ? 'Candidature vue' :
-                        candidatureStatus.status === 'entretien' ? 'Entretien proposé' :
-                        candidatureStatus.status === 'acceptee' ? 'Candidature acceptée' :
-                        'Candidature refusée'}
-                      </div>
-                      <div className="text-xs mt-1">
-                        Postuler le {formatDate(candidatureStatus.date_candidature)}
+              <div className="flex items-center">
+                <MapPin size={16} className="mr-1" />
+                <span>{offre.localisation || 'Lieu non spécifié'}</span>
+              </div>
+              
+              <div className="flex items-center">
+                <Calendar size={16} className="mr-1" />
+                <span>Début: {formatDate(offre.date_debut)}</span>
+              </div>
+              
+              <div className="flex items-center">
+                <Tag size={16} className="mr-1" />
+                <span className={`px-2 py-0.5 rounded-full text-xs ${getTypeColor(offre.type)}`}>
+                  {translateType(offre.type)}
+                </span>
+              </div>
+              
+              {offre.test_requis && (
+                <div className="flex items-center">
+                  <Book size={16} className="mr-1 text-indigo-500" />
+                  <span className="text-indigo-600 text-sm font-medium">Test requis</span>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Colonne principale */}
+            <div className="md:col-span-2">
+              {/* Statut de candidature */}
+              {candidatureStatus && (
+                <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center">
+                      <div className={`px-3 py-1 rounded-full text-sm font-medium ${getCandidatureStatusColor(candidatureStatus.status)}`}>
+                        <span className="flex items-center">
+                          <CheckCircle size={16} className="mr-1" />
+                          Candidature {translateCandidatureStatus(candidatureStatus.status)}
+                        </span>
                       </div>
                     </div>
                     
-                    {/* Test de compétences si nécessaire */}
-                    {offre.test_requis && candidatureStatus.status !== 'refusee' && (
-                      <div className="mt-2">
-                        {candidatureStatus.test_complete ? (
-                          <div className="flex items-center text-sm text-green-600">
-                            <Check size={16} className="mr-1" />
-                            Test complété - Score: {candidatureStatus.score_test || 'N/A'}
-                          </div>
-                        ) : (
-                          <button
-                            onClick={startSkillTest}
-                            className="w-full px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors flex items-center justify-center"
-                          >
-                            <FileCheck size={16} className="mr-2" />
-                            Passer le test technique
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setShowApplyModal(true)}
-                    className="px-6 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors flex items-center"
-                  >
-                    <Briefcase size={18} className="mr-2" />
-                    Postuler maintenant
-                  </button>
-                )
-              ) : (
-                <Link
-                  to={user ? '/dashboard' : '/login'}
-                  className="px-6 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors text-center"
-                >
-                  {user ? 'Accéder au tableau de bord' : 'Se connecter pour postuler'}
-                </Link>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      {/* Contenu principal */}
-      <div className="max-w-5xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Section principale */}
-          <div className="md:col-span-2 space-y-8">
-            {/* Description */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-lg font-medium text-gray-800 mb-4">Description du poste</h2>
-              <div className="prose text-gray-700">
-                {offre.description.split('\n').map((paragraph, index) => (
-                  <p key={index} className="mb-4">{paragraph}</p>
-                ))}
-              </div>
-            </div>
-            
-            {/* Compétences requises */}
-            {offre.competences && offre.competences.length > 0 && (
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <h2 className="text-lg font-medium text-gray-800 mb-4">Compétences requises</h2>
-                <div className="flex flex-wrap gap-2">
-                  {offre.competences.map(competence => (
-                    <div 
-                      key={competence.id}
-                      className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm"
-                    >
-                      {competence.nom}
+                    <div className="text-sm text-gray-500">
+                      Postulé le {formatDate(candidatureStatus.date_candidature)}
                     </div>
-                  ))}
+                  </div>
+                  
+                  {/* Test status */}
+                  {offre.test_requis && (
+                    <div className="mt-3 flex items-center">
+                      {candidatureStatus.test_complete ? (
+                        <div className="flex items-center text-sm">
+                          <CheckCircle size={16} className="mr-1 text-green-500" />
+                          <span>Test complété - Score: <span className="font-medium">{candidatureStatus.score_test}%</span></span>
+                        </div>
+                      ) : (
+                        <div className="flex justify-between items-center w-full">
+                          <div className="flex items-center text-sm text-amber-600">
+                            <AlertCircle size={16} className="mr-1" />
+                            <span>Test à compléter</span>
+                          </div>
+                          <Link 
+                            to={`/tests/${offre.test?.id}/candidatures/${candidatureStatus.candidature_id}`}
+                            className="px-3 py-1 bg-amber-500 text-white rounded hover:bg-amber-600 text-sm"
+                          >
+                            Passer le test
+                          </Link>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
+              )}
             
-            {/* Informations sur le test */}
-            {offre.test_requis && (
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <h2 className="text-lg font-medium text-gray-800 mb-4 flex items-center">
-                  <FileCheck size={20} className="mr-2 text-amber-500" />
-                  Test de compétences requis
-                </h2>
-                <p className="text-gray-700 mb-4">
-                  Cette offre nécessite de passer un test de compétences pour évaluer votre niveau technique.
-                </p>
-                <div className="bg-amber-50 rounded-lg p-4 text-sm">
-                  <div className="font-medium text-amber-800 mb-2">Informations importantes:</div>
-                  <ul className="list-disc list-inside text-amber-700 space-y-1">
-                    <li>Durée approximative: {offre.test?.duree_minutes || 30} minutes</li>
-                    <li>Le test est composé de questions à choix multiples</li>
-                    <li>Vous pouvez passer le test après avoir postulé</li>
-                    <li>Vous ne pouvez passer le test qu'une seule fois</li>
-                  </ul>
+              {/* Description de l'offre */}
+              <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+                <h2 className="text-xl font-semibold mb-4">Description de l'offre</h2>
+                <div className="prose max-w-none text-gray-700">
+                  {offre.description ? (
+                    <p className="whitespace-pre-line">{offre.description}</p>
+                  ) : (
+                    <p className="text-gray-500 italic">Aucune description disponible</p>
+                  )}
                 </div>
               </div>
-            )}
-            
-            {/* Offres similaires */}
-            {similarOffres.length > 0 && (
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <h2 className="text-lg font-medium text-gray-800 mb-4">Offres similaires</h2>
-                <div className="space-y-4">
-                  {similarOffres.map(offre => (
-                    <Link 
-                      key={offre.id}
-                      to={`/offres/${offre.id}`}
-                      className="block p-3 border border-gray-200 rounded-lg hover:border-teal-300 hover:bg-teal-50 transition-colors"
-                    >
-                      <h3 className="font-medium text-gray-800">{offre.titre}</h3>
-                      <div className="flex flex-wrap gap-3 mt-2 text-xs text-gray-500">
-                        <div className="flex items-center">
-                          <Building size={12} className="mr-1" />
-                          {offre.entreprise.nom_entreprise}
-                        </div>
-                        <div className="flex items-center">
-                          <MapPin size={12} className="mr-1" />
-                          {offre.localisation}
-                        </div>
-                        <div className="flex items-center">
-                          {offre.type === 'stage' ? (
-                            <Briefcase size={12} className="mr-1" />
-                          ) : offre.type === 'alternance' ? (
-                            <Users size={12} className="mr-1" />
-                          ) : (
-                            <Building size={12} className="mr-1" />
-                          )}
-                          {offre.type === 'stage' ? 'Stage' : offre.type === 'alternance' ? 'Alternance' : 'Emploi'}
-                        </div>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-          
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Informations sur l'entreprise */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-lg font-medium text-gray-800 mb-4">À propos de l'entreprise</h2>
               
-              {entreprise.logo ? (
-                <img
-                  src={entreprise.logo}
-                  alt={entreprise.nom_entreprise}
-                  className="h-16 object-contain mb-4"
-                />
-              ) : (
-                <div className="h-16 w-full flex items-center justify-start mb-4">
-                  <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center">
-                    <Building size={24} className="text-gray-400" />
+              {/* Compétences requises */}
+              {offre.competences && offre.competences.length > 0 && (
+                <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+                  <h2 className="text-xl font-semibold mb-4">Compétences requises</h2>
+                  <div className="flex flex-wrap gap-2">
+                    {offre.competences.map(competence => (
+                      <span 
+                        key={competence.id}
+                        className="px-3 py-1 bg-teal-50 text-teal-700 rounded-full text-sm"
+                      >
+                        {competence.nom}
+                      </span>
+                    ))}
                   </div>
                 </div>
               )}
+            </div>
+            
+            {/* Sidebar */}
+            <div className="md:col-span-1">
+              {/* Informations de l'offre */}
+              <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+                <h2 className="text-lg font-semibold mb-4">Détails</h2>
+                <ul className="space-y-3">
+                  <li className="flex justify-between">
+                    <span className="text-gray-600">Type</span>
+                    <span className="font-medium">{translateType(offre.type)}</span>
+                  </li>
+                  <li className="flex justify-between">
+                    <span className="text-gray-600">Début</span>
+                    <span className="font-medium">{formatDate(offre.date_debut)}</span>
+                  </li>
+                  {offre.duree && (
+                    <li className="flex justify-between">
+                      <span className="text-gray-600">Durée</span>
+                      <span className="font-medium">{offre.duree} mois</span>
+                    </li>
+                  )}
+                  {offre.remuneration && (
+                    <li className="flex justify-between">
+                      <span className="text-gray-600">Rémunération</span>
+                      <span className="font-medium">{offre.remuneration} €{offre.type === 'emploi' ? '/an' : '/mois'}</span>
+                    </li>
+                  )}
+                  <li className="flex justify-between">
+                    <span className="text-gray-600">Niveau requis</span>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getNiveauColor(offre.niveau_requis)}`}>
+                      {offre.niveau_requis || 'Non spécifié'}
+                    </span>
+                  </li>
+                  <li className="flex justify-between">
+                    <span className="text-gray-600">Publication</span>
+                    <span className="font-medium">{formatDate(offre.created_at)}</span>
+                  </li>
+                </ul>
+              </div>
               
-              <h3 className="font-medium text-gray-800 mb-1">{entreprise.nom_entreprise}</h3>
-              <p className="text-sm text-gray-500 mb-3">{entreprise.secteur_activite}</p>
-              
-              {entreprise.description && (
-                <p className="text-sm text-gray-600 mb-4">{entreprise.description}</p>
-              )}
-              
-              <div className="space-y-2 text-sm">
-                {entreprise.site_web && (
-                  <div className="flex items-center">
-                    <Globe size={16} className="mr-2 text-gray-400" />
+              {/* Entreprise */}
+              {entreprise && (
+                <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+                  <h2 className="text-lg font-semibold mb-4">À propos de l'entreprise</h2>
+                  
+                  <div className="flex items-center mb-4">
+                    <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center text-gray-700 font-bold text-xl mr-3">
+                      {entreprise.logo ? (
+                        <img 
+                          src={`/storage/${entreprise.logo}`} 
+                          alt={entreprise.nom_entreprise} 
+                          className="w-full h-full object-cover rounded-lg"
+                        />
+                      ) : (
+                        entreprise.nom_entreprise?.charAt(0) || 'E'
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="font-medium">{entreprise.nom_entreprise}</h3>
+                      <p className="text-sm text-gray-500">{entreprise.secteur_activite}</p>
+                    </div>
+                  </div>
+                  
+                  {entreprise.description && (
+                    <p className="text-sm text-gray-600 mb-4 line-clamp-3">
+                      {entreprise.description}
+                    </p>
+                  )}
+                  
+                  {entreprise.site_web && (
                     <a 
                       href={entreprise.site_web} 
                       target="_blank" 
                       rel="noopener noreferrer"
-                      className="text-teal-600 hover:underline"
+                      className="text-blue-600 hover:text-blue-800 text-sm flex items-center"
                     >
-                      Site web
+                      <LinkIcon size={14} className="mr-1" />
+                      Visiter le site web
                     </a>
-                  </div>
-                )}
-                
-                {entreprise.taille && (
-                  <div className="flex items-center">
-                    <Users size={16} className="mr-2 text-gray-400" />
-                    <span>{entreprise.taille}</span>
-                  </div>
-                )}
-                
-                {entreprise.ville && (
-                  <div className="flex items-center">
-                    <MapPin size={16} className="mr-2 text-gray-400" />
-                    <span>{`${entreprise.ville}${entreprise.pays ? ', ' + entreprise.pays : ''}`}</span>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
               
-              <div className="mt-4 pt-4 border-t border-gray-100">
-                <Link 
-                  to={`/entreprises/${entreprise.id}`}
-                  className="text-teal-500 hover:text-teal-600 text-sm flex items-center"
-                >
-                  Voir toutes les offres
-                  <ChevronLeft size={16} className="ml-1 rotate-180" />
-                </Link>
-              </div>
-            </div>
-            
-            {/* Informations clés */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-lg font-medium text-gray-800 mb-4">Informations clés</h2>
-              
-              <div className="space-y-3">
-                <div className="flex items-start">
-                  <div className="mt-0.5 mr-3 text-teal-500">
-                    <Briefcase size={16} />
+              {/* Bouton de candidature */}
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                {canApply() ? (
+                  <button
+                    onClick={() => setShowModal(true)}
+                    className="w-full bg-teal-500 hover:bg-teal-600 text-white py-3 px-4 rounded-lg flex items-center justify-center"
+                  >
+                    <Send size={18} className="mr-2" />
+                    Postuler à cette offre
+                  </button>
+                ) : candidatureStatus ? (
+                  <div className="text-center">
+                    <p className="text-green-600 font-medium mb-2">Vous avez déjà postulé à cette offre</p>
+                    <Link 
+                      to={`/candidatures/${candidatureStatus.candidature_id}`}
+                      className="text-blue-600 hover:text-blue-800"
+                    >
+                      Voir ma candidature
+                    </Link>
                   </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-700">Type de contrat</h3>
-                    <p className="text-sm text-gray-600">
-                      {offre.type === 'stage' 
-                        ? 'Stage' 
-                        : offre.type === 'alternance' 
-                        ? 'Alternance' 
-                        : 'Emploi'}
-                    </p>
+                ) : !isAuthenticated ? (
+                  <div className="text-center">
+                    <p className="text-gray-600 mb-2">Connectez-vous pour postuler à cette offre</p>
+                    <Link 
+                      to={`/login?redirect=/offres/${id}`}
+                      className="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg inline-block"
+                    >
+                      Se connecter
+                    </Link>
                   </div>
-                </div>
-                
-                <div className="flex items-start">
-                  <div className="mt-0.5 mr-3 text-teal-500">
-                    <Calendar size={16} />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-700">Date de début</h3>
-                    <p className="text-sm text-gray-600">{formatDate(offre.date_debut)}</p>
-                  </div>
-                </div>
-                
-                {offre.duree > 0 && (
-                  <div className="flex items-start">
-                    <div className="mt-0.5 mr-3 text-teal-500">
-                      <Clock size={16} />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-700">Durée</h3>
-                      <p className="text-sm text-gray-600">{offre.duree} {offre.duree > 1 ? 'mois' : 'mois'}</p>
-                    </div>
-                  </div>
-                )}
-                
-                <div className="flex items-start">
-                  <div className="mt-0.5 mr-3 text-teal-500">
-                    <MapPin size={16} />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-700">Localisation</h3>
-                    <p className="text-sm text-gray-600">{offre.localisation}</p>
-                  </div>
-                </div>
-                
-                {offre.remuneration && (
-                  <div className="flex items-start">
-                    <div className="mt-0.5 mr-3 text-teal-500">
-                      <CreditCard size={16} />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-700">Rémunération</h3>
-                      <p className="text-sm text-gray-600">
-                        {new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(offre.remuneration)}
-                        {offre.type === 'alternance' ? '/an' : offre.type === 'stage' ? '/mois' : '/an'}
-                      </p>
-                    </div>
-                  </div>
-                )}
-                
-                {offre.niveau_requis && (
-                  <div className="flex items-start">
-                    <div className="mt-0.5 mr-3 text-teal-500">
-                      <User size={16} />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-700">Niveau requis</h3>
-                      <p className="text-sm text-gray-600">{offre.niveau_requis}</p>
-                    </div>
-                  </div>
+                ) : user?.role === 'entreprise' ? (
+                  <p className="text-gray-600 text-center">Les entreprises ne peuvent pas postuler aux offres</p>
+                ) : (
+                  <p className="text-gray-600 text-center">Vous ne pouvez pas postuler à cette offre</p>
                 )}
               </div>
             </div>
           </div>
+          
+          {/* Offres similaires */}
+          {similarOffres.length > 0 && (
+            <div className="mt-10">
+              <h2 className="text-xl font-semibold mb-4">Offres similaires</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {similarOffres.map(offre => (
+                  <Link 
+                    key={offre.id}
+                    to={`/offres/${offre.id}`}
+                    className="bg-white rounded-lg shadow-sm p-4 hover:shadow-md transition-shadow border border-gray-100"
+                  >
+                    <h3 className="font-medium text-gray-900">{offre.titre}</h3>
+                    <p className="text-sm text-gray-500 mb-2">{offre.entreprise?.nom_entreprise}</p>
+                    <div className="flex items-center text-xs text-gray-500">
+                      <MapPin size={12} className="mr-1" />
+                      <span>{offre.localisation}</span>
+                      <span className="mx-2">•</span>
+                      <span className={`px-2 py-0.5 rounded-full text-xs ${getTypeColor(offre.type)}`}>
+                        {translateType(offre.type)}
+                      </span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
       
       {/* Modal de candidature */}
-      {showApplyModal && (
+      {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-start">
-              <h2 className="text-xl font-semibold text-gray-800">Soumettre votre candidature</h2>
-              <button 
-                onClick={() => setShowApplyModal(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            
-            <div className="mt-4">
-              <div className="flex items-center p-3 bg-blue-50 rounded-lg mb-4">
-                <div className="rounded-full p-2 bg-blue-100 text-blue-600 mr-3">
-                  <Briefcase size={18} />
-                </div>
-                <div>
-                  <h3 className="font-medium text-blue-800">{offre.titre}</h3>
-                  <p className="text-sm text-blue-600">{entreprise.nom_entreprise} - {offre.localisation}</p>
-                </div>
-              </div>
-              
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Lettre de motivation
-                </label>
-                <textarea
-                  rows="6"
-                  placeholder="Présentez-vous et expliquez pourquoi vous êtes intéressé par ce poste..."
-                  value={lettreMotivation}
-                  onChange={(e) => setLettreMotivation(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                ></textarea>
-                <p className="mt-1 text-xs text-gray-500">
-                  Expliquez pourquoi vous êtes le candidat idéal pour ce poste et ce qui vous motive à rejoindre cette entreprise.
-                </p>
-              </div>
-              
-              <div className="mb-4">
-                <div className="flex justify-between items-center mb-1">
-                  <label className="block text-sm font-medium text-gray-700">
-                    CV et autres documents
-                  </label>
-                  <Link
-                    to="/dashboard"
-                    className="text-xs text-teal-500 hover:text-teal-600"
-                  >
-                    Gérer mes documents
-                  </Link>
-                </div>
-                
-                <div className="border border-gray-200 rounded-lg p-3">
-                  <div className="flex items-center">
-                    <div className="mr-3 text-gray-400">
-                      <FileText size={18} />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-800">Mon CV actuel</p>
-                      <p className="text-xs text-gray-500">Mis à jour le {formatDate(new Date())}</p>
-                    </div>
-                    <a href="#" className="text-teal-500 hover:text-teal-600">
-                      <Eye size={16} />
-                    </a>
-                  </div>
-                </div>
-              </div>
-              
-              {offre.test_requis && (
-                <div className="mb-6 bg-amber-50 p-3 rounded-lg">
-                  <div className="flex items-start">
-                    <div className="mt-0.5 mr-3 text-amber-500">
-                      <AlertCircle size={18} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-amber-800">Cette offre nécessite un test de compétences</p>
-                      <p className="text-xs text-amber-700 mt-1">
-                        Après avoir postulé, vous devrez réaliser un test technique pour compléter votre candidature.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-              
-              <div className="flex justify-end space-x-3 border-t border-gray-100 pt-4">
-                <button
-                  onClick={() => setShowApplyModal(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+          <div className="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-start mb-4">
+                <h2 className="text-xl font-semibold text-gray-900">Candidature pour : {offre.titre}</h2>
+                <button 
+                  onClick={() => setShowModal(false)}
+                  className="text-gray-500 hover:text-gray-700"
                 >
-                  Annuler
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </button>
-                <button
-                  onClick={submitCandidature}
-                  disabled={candidatureSubmitting || !lettreMotivation.trim()}
-                  className={`px-6 py-2 rounded-lg text-white flex items-center ${
-                    candidatureSubmitting || !lettreMotivation.trim() 
-                      ? 'bg-gray-400 cursor-not-allowed' 
-                      : 'bg-teal-500 hover:bg-teal-600'
-                  }`}
-                >
-                  {candidatureSubmitting ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
-                      Envoi en cours...
-                    </>
-                  ) : (
-                    <>
-                      <Send size={16} className="mr-2" />
-                      Envoyer ma candidature
-                    </>
+              </div>
+              
+              {successMessage ? (
+                <div className="bg-green-50 border-l-4 border-green-500 p-4 mb-4">
+                  <div className="flex">
+                    <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
+                    <p className="text-green-700">{successMessage}</p>
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleSubmitCandidature}>
+                  {errorMessage && (
+                    <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
+                      <div className="flex">
+                        <AlertCircle className="h-5 w-5 text-red-500 mr-2" />
+                        <p className="text-red-700">{errorMessage}</p>
+                      </div>
+                    </div>
                   )}
-                </button>
-              </div>
+                  
+                  <div className="mb-4">
+                    <label htmlFor="lettre_motivation" className="block text-sm font-medium text-gray-700 mb-1">
+                      Lettre de motivation <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      id="lettre_motivation"
+                      rows="10"
+                      value={lettreMotivation}
+                      onChange={(e) => setLettreMotivation(e.target.value)}
+                      placeholder="Expliquez pourquoi vous êtes intéressé(e) par cette offre et pourquoi vous seriez un bon candidat..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      required
+                    ></textarea>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {lettreMotivation.length} caractères (minimum 100 caractères)
+                    </p>
+                  </div>
+                  
+                  {offre.test_requis && (
+                    <div className="bg-amber-50 border-l-4 border-amber-500 p-4 mb-4">
+                      <div className="flex">
+                        <AlertCircle className="h-5 w-5 text-amber-500 mr-2" />
+                        <div>
+                          <p className="text-amber-700 font-medium">Test de compétences requis</p>
+                          <p className="text-amber-700 text-sm">
+                            Après avoir soumis votre candidature, vous devrez compléter un test de compétences.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="flex justify-end space-x-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowModal(false)}
+                      className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                    >
+                      Annuler
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={submitting || lettreMotivation.trim().length < 100}
+                      className={`px-4 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600 flex items-center ${
+                        submitting || lettreMotivation.trim().length < 100 ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
+                    >
+                      {submitting ? (
+                        <>
+                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Envoi en cours...
+                        </>
+                      ) : (
+                        <>
+                          <Send size={16} className="mr-2" />
+                          Envoyer ma candidature
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
           </div>
         </div>
       )}
-    </div>
+    </MainLayout>
   );
 };
 
