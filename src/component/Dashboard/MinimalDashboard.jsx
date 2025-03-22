@@ -62,7 +62,7 @@ const MinimalDashboard = () => {
           const applicationsResponse = await axios.get('/api/etudiant/candidatures');
           
           // Offres recommandées
-          const opportunitiesResponse = await axios.get('/api/etudiant/recommended-offers');
+          const opportunitiesResponse = { data: { recommended_offers: [] } };
           
           // Tests à compléter
           const testsResponse = await axios.get('/api/etudiant/tests');
