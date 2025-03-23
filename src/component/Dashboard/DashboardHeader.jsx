@@ -13,7 +13,6 @@ const DashboardHeader = ({
       case 'overview': return 'Tableau de bord';
       case 'profile': return 'Mon profil';
       case 'applications': return 'Mes candidatures';
-      case 'opportunities': return 'Opportunités';
       case 'tests': return 'Tests techniques';
       case 'messages': return 'Messages';
       case 'notifications': return 'Notifications';
@@ -26,7 +25,7 @@ const DashboardHeader = ({
   };
 
   // Déterminer si la barre de recherche doit être affichée
-  const showSearchBar = ['opportunities', 'applications', 'offers', 'candidates'].includes(activeTab);
+  const showSearchBar = ['applications', 'offers', 'candidates'].includes(activeTab);
 
   return (
     <header className="h-16 bg-white border-b border-gray-100 px-6 flex items-center">

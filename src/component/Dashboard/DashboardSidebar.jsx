@@ -1,6 +1,6 @@
-// src/components/dashboard/DashboardSidebar.jsx
 import React from 'react';
 import { 
+  Monitor,
   User, 
   Briefcase, 
   FileText, 
@@ -8,7 +8,6 @@ import {
   Settings, 
   LogOut,
   Book,
-  MessageSquare,
   ChevronRight,
   ChevronLeft
 } from 'lucide-react';
@@ -19,23 +18,22 @@ const DashboardSidebar = ({
   sidebarCollapsed, 
   setSidebarCollapsed, 
   userData,
-  handleLogout
+  handleLogout,
+  unreadNotifications = 0
 }) => {
   // Configurer les éléments du menu en fonction du rôle
   const getMenuItems = () => {
     const commonItems = [
-      { id: 'overview', label: 'Tableau de bord', icon: <User size={20} /> },
+      { id: 'overview', label: 'Tableau de bord', icon: <Monitor size={20} /> },
       { id: 'profile', label: 'Profil', icon: <User size={20} /> },
-      { id: 'messages', label: 'Messages', icon: <MessageSquare size={20} /> },
-      { id: 'notifications', label: 'Notifications', icon: <Bell size={20} /> },
+      { id: 'notifications', label: 'Notifications', icon: <Bell size={20} />, badge: unreadNotifications },
       { id: 'settings', label: 'Paramètres', icon: <Settings size={20} /> }
     ];
     
     if (userData?.role === 'etudiant') {
       return [
         ...commonItems.slice(0, 2),
-        { id: 'applications', label: 'Candidatures', icon: <FileText size={20} /> },
-        { id: 'opportunities', label: 'Opportunités', icon: <Briefcase size={20} /> },
+        { id: 'applications', label: 'Mes candidatures', icon: <FileText size={20} /> },
         { id: 'tests', label: 'Tests', icon: <Book size={20} /> },
         ...commonItems.slice(2)
       ];
@@ -43,7 +41,7 @@ const DashboardSidebar = ({
       return [
         ...commonItems.slice(0, 2),
         { id: 'offers', label: 'Mes offres', icon: <Briefcase size={20} /> },
-        { id: 'candidates', label: 'Candidatures', icon: <FileText size={20} /> },
+        { id: 'candidates', label: 'Candidatures reçues', icon: <FileText size={20} /> },
         ...commonItems.slice(2)
       ];
     }
@@ -99,9 +97,21 @@ const DashboardSidebar = ({
               >
                 <div className="relative">
                   {item.icon}
+                  {item.badge > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-4 h-4 flex items-center justify-center rounded-full">
+                      {item.badge > 9 ? '9+' : item.badge}
+                    </span>
+                  )}
                 </div>
                 {!sidebarCollapsed && (
-                  <span className="ml-3">{item.label}</span>
+                  <div className="ml-3 flex-1 flex justify-between items-center">
+                    <span>{item.label}</span>
+                    {item.badge > 0 && (
+                      <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+                        {item.badge > 99 ? '99+' : item.badge}
+                      </span>
+                    )}
+                  </div>
                 )}
               </button>
             </li>

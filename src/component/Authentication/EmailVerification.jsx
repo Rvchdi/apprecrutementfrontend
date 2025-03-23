@@ -1,239 +1,192 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, RefreshCw, ArrowLeft, Loader2, Mail, ExternalLink, AlertTriangle } from 'lucide-react';
-import axios from 'axios';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { AlertCircle, CheckCircle, Mail, ArrowLeft, MailCheck } from 'lucide-react';
 import { useAuth } from './AuthContext';
 
 const EmailVerification = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { user, isAuthenticated } = useAuth();
+  const [searchParams] = useSearchParams();
+  const { user, isAuthenticated, loading, resendVerificationEmail, verifyEmail } = useAuth();
   
-  // Récupérer le token de l'URL si présent
-  const queryParams = new URLSearchParams(location.search);
-  const tokenFromUrl = queryParams.get('token');
+  const [verifying, setVerifying] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [success, setSuccess] = useState('');
+  const [error, setError] = useState('');
+  const [countdown, setCountdown] = useState(0);
   
-  // États
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [isVerified, setIsVerified] = useState(false);
-  const [error, setError] = useState(null);
-  const [countdown, setCountdown] = useState(30);
-  const [canResend, setCanResend] = useState(false);
-  const [isResending, setIsResending] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
-  
-  // Vérifier le token s'il est présent dans l'URL
+  // Vérifier le token dans l'URL s'il est présent
   useEffect(() => {
-    if (tokenFromUrl) {
-      verifyEmail(tokenFromUrl);
+    const token = searchParams.get('token');
+    
+    if (token) {
+      verifyEmailWithToken(token);
     }
-  }, [tokenFromUrl]);
+  }, [searchParams]);
   
-  // Effet pour gérer le compte à rebours de renvoi du code
+  // Rediriger si l'utilisateur n'est pas connecté
   useEffect(() => {
-    if (countdown > 0 && !canResend) {
+    if (!loading && !isAuthenticated) {
+      navigate('/login');
+    }
+  }, [navigate, isAuthenticated, loading]);
+  
+  // Gérer le compte à rebours pour empêcher les envois d'email trop fréquents
+  useEffect(() => {
+    if (countdown > 0) {
       const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
       return () => clearTimeout(timer);
-    } else if (countdown === 0 && !canResend) {
-      setCanResend(true);
     }
-  }, [countdown, canResend]);
-
-  // Vérifier le token
-  const verifyEmail = async (token) => {
+  }, [countdown]);
+  
+  // Vérifier un token d'email
+  const verifyEmailWithToken = async (token) => {
+    setVerifying(true);
+    setError('');
+    setSuccess('');
+    
     try {
-      setIsVerifying(true);
-      setError(null);
+      const result = await verifyEmail(token);
       
-      const response = await axios.post('/api/auth/verify-email', { token });
-      
-      setIsVerified(true);
-      setSuccessMessage(response.data.message || 'Votre adresse e-mail a été vérifiée avec succès !');
-      
-      // Mettre à jour l'état d'authentification après une courte attente
-      setTimeout(() => {
-        window.location.href = '/dashboard';
-      }, 3000);
-      
-    } catch (error) {
-      console.error('Erreur lors de la vérification :', error);
-      setError(error.response?.data?.message || 'Une erreur est survenue lors de la vérification de votre e-mail.');
+      if (result.success) {
+        setSuccess(result.message || 'Votre adresse email a été vérifiée avec succès!');
+        // Rediriger vers le dashboard après vérification
+        setTimeout(() => navigate('/dashboard'), 3000);
+      } else {
+        setError(result.message || 'Le lien de vérification est invalide ou a expiré.');
+      }
+    } catch (err) {
+      console.error('Erreur lors de la vérification:', err);
+      setError('Une erreur est survenue lors de la vérification de votre email.');
     } finally {
-      setIsVerifying(false);
+      setVerifying(false);
     }
   };
   
-  // Renvoyer le code de vérification
-  const resendVerificationEmail = async () => {
+  // Renvoyer l'email de vérification
+  const handleResendEmail = async () => {
+    if (countdown > 0) return;
+    
+    setResending(true);
+    setError('');
+    setSuccess('');
+    
     try {
-      setIsResending(true);
-      setError(null);
+      const result = await resendVerificationEmail();
       
-      const response = await axios.post('/api/auth/resend-verification-email');
-      
-      setSuccessMessage(response.data.message || 'Un nouvel e-mail de vérification a été envoyé !');
-      setCountdown(30);
-      setCanResend(false);
-      
-    } catch (error) {
-      console.error('Erreur lors de l\'envoi :', error);
-      setError(error.response?.data?.message || 'Une erreur est survenue lors de l\'envoi de l\'e-mail.');
+      if (result.success) {
+        setSuccess(result.message || 'Un nouvel email de vérification a été envoyé.');
+        setCountdown(60); // Désactiver le bouton pendant 60 secondes
+      } else {
+        setError(result.message || 'Impossible d\'envoyer l\'email de vérification.');
+      }
+    } catch (err) {
+      console.error('Erreur lors de l\'envoi:', err);
+      setError('Une erreur est survenue lors de l\'envoi de l\'email.');
     } finally {
-      setIsResending(false);
+      setResending(false);
     }
   };
   
-  // Retourner au tableau de bord
-  const goToDashboard = () => {
+  // Retourner à la page d'accueil
+  const goBack = () => {
     navigate('/dashboard');
   };
+  
+  // Si en attente, afficher un loader
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="bg-white shadow-lg rounded-lg p-8 flex flex-col items-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-teal-500 mb-4"></div>
+          <p className="text-gray-700">Chargement en cours...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-md overflow-hidden">
-        {/* En-tête */}
-        <div className="bg-gradient-to-r from-teal-500 to-teal-600 p-6 text-white">
-          <h1 className="text-xl font-semibold flex items-center justify-center mb-2">
-            <Mail className="mr-2" size={24} />
-            Vérification de votre e-mail
-          </h1>
-          <p className="text-teal-100 text-center">
-            {isVerified
-              ? "Votre adresse e-mail a été vérifiée avec succès"
-              : `Veuillez vérifier votre adresse e-mail : ${user?.email || ""}`
-            }
-          </p>
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-lg bg-white shadow-xl rounded-2xl p-8">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold text-gray-800">Vérification d'email</h1>
+          <button
+            onClick={goBack}
+            className="flex items-center text-gray-500 hover:text-gray-700 transition-colors"
+          >
+            <ArrowLeft size={18} className="mr-1" />
+            Retour
+          </button>
         </div>
         
-        {/* Contenu principal */}
-        <div className="p-6">
-          {isVerified ? (
-            <div className="text-center">
-              <div className="w-16 h-16 bg-green-100 text-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle size={32} />
-              </div>
-              <h2 className="text-lg font-medium text-gray-800 mb-2">Vérification réussie</h2>
-              <p className="text-gray-600 mb-6">{successMessage}</p>
-              <button
-                onClick={goToDashboard}
-                className="w-full px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors"
-              >
-                Accéder à mon tableau de bord
-              </button>
+        {/* Messages de statut */}
+        {error && (
+          <div className="mb-6 bg-red-50 text-red-600 p-4 rounded-lg flex items-center text-sm">
+            <AlertCircle size={20} className="mr-3 flex-shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+        
+        {success && (
+          <div className="mb-6 bg-green-50 text-green-600 p-4 rounded-lg flex items-center text-sm">
+            <CheckCircle size={20} className="mr-3 flex-shrink-0" />
+            <span>{success}</span>
+          </div>
+        )}
+        
+        <div className="bg-blue-50 rounded-xl p-6 mb-6">
+          <div className="flex items-start">
+            <div className="bg-blue-100 rounded-full p-3 mr-4 flex-shrink-0">
+              <MailCheck size={24} className="text-blue-600" />
             </div>
-          ) : (
             <div>
-              {error && (
-                <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 flex items-start">
-                  <AlertTriangle className="mr-2 flex-shrink-0 mt-0.5" size={20} />
-                  <div>
-                    <p className="font-medium">Une erreur est survenue</p>
-                    <p className="text-sm">{error}</p>
-                  </div>
-                </div>
-              )}
-              
-              {successMessage && !error && (
-                <div className="mb-6 p-4 bg-green-50 border-l-4 border-green-500 text-green-700">
-                  <p>{successMessage}</p>
-                </div>
-              )}
-              
-              <div className="mb-6">
-                <h2 className="text-lg font-medium text-gray-800 mb-4">Comment vérifier votre e-mail</h2>
-                <div className="bg-gray-50 p-4 rounded-lg mb-4">
-                  <div className="flex items-start mb-3">
-                    <div className="w-6 h-6 rounded-full bg-teal-100 text-teal-600 flex items-center justify-center mr-2 flex-shrink-0">
-                      1
-                    </div>
-                    <p className="text-gray-700">
-                      Consultez votre boîte de réception et ouvrez l'e-mail intitulé 
-                      <span className="font-medium"> Vérification de votre adresse email</span>
-                    </p>
-                  </div>
-                  <div className="flex items-start mb-3">
-                    <div className="w-6 h-6 rounded-full bg-teal-100 text-teal-600 flex items-center justify-center mr-2 flex-shrink-0">
-                      2
-                    </div>
-                    <p className="text-gray-700">
-                      Cliquez sur le bouton <span className="font-medium">Vérifier mon adresse email</span> présent dans l'e-mail
-                    </p>
-                  </div>
-                  <div className="flex items-start">
-                    <div className="w-6 h-6 rounded-full bg-teal-100 text-teal-600 flex items-center justify-center mr-2 flex-shrink-0">
-                      3
-                    </div>
-                    <p className="text-gray-700">
-                      Vous serez automatiquement redirigé vers votre tableau de bord
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex flex-col space-y-3">
-                  <button
-                    onClick={resendVerificationEmail}
-                    disabled={isResending || !canResend}
-                    className={`px-4 py-2 rounded-lg flex items-center justify-center transition-colors ${
-                      isResending || !canResend
-                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                        : 'bg-teal-500 text-white hover:bg-teal-600'
-                    }`}
-                  >
-                    {isResending ? (
-                      <>
-                        <Loader2 className="animate-spin mr-2" size={16} />
-                        Envoi en cours...
-                      </>
-                    ) : !canResend ? (
-                      <>
-                        <RefreshCw size={16} className="mr-2" />
-                        Renvoyer le lien ({countdown}s)
-                      </>
-                    ) : (
-                      <>
-                        <RefreshCw size={16} className="mr-2" />
-                        Renvoyer le lien de vérification
-                      </>
-                    )}
-                  </button>
-                  
-                  <div className="text-center">
-                    <button
-                      onClick={goToDashboard}
-                      className="text-teal-600 hover:text-teal-700 text-sm"
-                    >
-                      Retourner au tableau de bord
-                    </button>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="mt-6 border-t border-gray-200 pt-4">
-                <h3 className="text-sm font-medium text-gray-700 mb-2">Notes importantes</h3>
-                <ul className="text-sm text-gray-600 space-y-1">
-                  <li className="flex items-start">
-                    <span className="mr-2">•</span>
-                    <span>Certaines fonctionnalités sont limitées tant que votre e-mail n'est pas vérifié</span>
-                  </li>
-                  <li className="flex items-start">
-                    <span className="mr-2">•</span>
-                    <span>Vérifiez également vos dossiers de spam si vous ne trouvez pas l'e-mail</span>
-                  </li>
-                </ul>
-              </div>
+              <h2 className="text-lg font-medium text-blue-800 mb-2">Vérification requise</h2>
+              <p className="text-blue-700 mb-2">
+                Veuillez vérifier votre adresse email pour accéder à toutes les fonctionnalités.
+                Un email de vérification a été envoyé à <strong>{user?.email}</strong>.
+              </p>
+              <p className="text-blue-600 text-sm">
+                Si vous ne trouvez pas l'email, vérifiez votre dossier spam ou cliquez sur le bouton ci-dessous pour recevoir un nouvel email.
+              </p>
             </div>
-          )}
+          </div>
         </div>
         
-        {/* Pied de page */}
-        <div className="bg-gray-50 px-6 py-3 flex justify-between items-center text-xs text-gray-500 border-t border-gray-100">
-          <div>
-            <span>Besoin d'aide ? </span>
-            <a href="mailto:support@jobconnect.com" className="text-teal-600 hover:underline">Contactez-nous</a>
-          </div>
-          <div>
-            JobConnect © {new Date().getFullYear()}
-          </div>
+        <div className="flex justify-center">
+          <button
+            onClick={handleResendEmail}
+            disabled={resending || countdown > 0}
+            className={`flex items-center px-5 py-3 rounded-lg ${
+              resending || countdown > 0
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : 'bg-teal-600 text-white hover:bg-teal-700'
+            } transition-colors`}
+          >
+            {resending ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white mr-2"></div>
+                Envoi en cours...
+              </>
+            ) : countdown > 0 ? (
+              <>
+                <Mail size={18} className="mr-2" />
+                Renvoyer dans {countdown}s
+              </>
+            ) : (
+              <>
+                <Mail size={18} className="mr-2" />
+                Renvoyer l'email de vérification
+              </>
+            )}
+          </button>
+        </div>
+        
+        <div className="mt-8 text-center text-sm text-gray-500">
+          <p>
+            Si vous avez besoin d'aide, veuillez contacter notre support à{' '}
+            <a href="mailto:support@jobconnect.com" className="text-teal-600 hover:underline">
+              support@jobconnect.com
+            </a>
+          </p>
         </div>
       </div>
     </div>

@@ -2,9 +2,11 @@ import React from 'react';
 import { Clock, ChevronRight, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-const ApplicationsWidget = ({ candidatures, loading }) => {
+const ApplicationWidget = ({ candidatures = [], loading }) => {
   // Formater la date relative
   const formatRelativeTime = (dateString) => {
+    if (!dateString) return "Date inconnue";
+    
     const date = new Date(dateString);
     const now = new Date();
     const diffMs = now - date;
@@ -25,6 +27,8 @@ const ApplicationsWidget = ({ candidatures, loading }) => {
   
   // Obtenir la couleur en fonction du statut
   const getStatusColor = (status) => {
+    if (!status) return 'bg-gray-100 text-gray-800';
+    
     switch(status) {
       case 'en_attente': return 'bg-blue-100 text-blue-800';
       case 'vue': return 'bg-indigo-100 text-indigo-800';
@@ -37,6 +41,8 @@ const ApplicationsWidget = ({ candidatures, loading }) => {
   
   // Traduire le statut
   const translateStatus = (status) => {
+    if (!status) return "Inconnu";
+    
     const translations = {
       'en_attente': 'En attente',
       'vue': 'Vue',
@@ -93,8 +99,12 @@ const ApplicationsWidget = ({ candidatures, loading }) => {
             >
               <div className="flex justify-between">
                 <div>
-                  <h3 className="font-medium text-gray-800">{candidature.offre.titre}</h3>
-                  <p className="text-sm text-gray-500">{candidature.offre.entreprise.nom_entreprise}</p>
+                  <h3 className="font-medium text-gray-800">
+                    {candidature.offre?.titre || "Offre sans titre"}
+                  </h3>
+                  <p className="text-sm text-gray-500">
+                    {candidature.offre?.entreprise?.nom_entreprise || "Entreprise non spécifiée"}
+                  </p>
                 </div>
                 <div className="flex items-center">
                   <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(candidature.statut)}`}>
@@ -115,4 +125,4 @@ const ApplicationsWidget = ({ candidatures, loading }) => {
   );
 };
 
-export default ApplicationsWidget;
+export default ApplicationWidget;

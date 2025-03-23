@@ -204,9 +204,6 @@ const FixedNavbar = () => {
   // Liens de navigation principale
   const navLinks = [
     { name: "Offres", href: "/offres", current: true },
-    { name: "Entreprises", href: "/entreprises", current: false },
-    { name: "Événements", href: "/evenements", current: false },
-    { name: "Ressources", href: "/ressources", current: false }
   ];
 
   return (
@@ -417,18 +414,19 @@ const FixedNavbar = () => {
                               <User className="mr-3 h-5 w-5 text-gray-500" />
                               Mon profil
                             </Link>
-                            <Link to="/candidatures" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                            <Link 
+                              to={user.role === 'etudiant' ? "/dashboard?tab=applications" : "/dashboard?tab=offers"} 
+                              className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                              onClick={() => {
+                                if (user.role === 'etudiant') {
+                                  setActiveTab('applications');
+                                } else {
+                                  setActiveTab('offers');
+                                }
+                              }}
+                            >
                               <Bookmark className="mr-3 h-5 w-5 text-gray-500" />
                               {user.role === 'etudiant' ? 'Mes candidatures' : 'Mes offres'}
-                            </Link>
-                            <Link to="/messages" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                              <MessageSquare className="mr-3 h-5 w-5 text-gray-500" />
-                              Messages
-                              {unreadMessagesCount > 0 && (
-                                <span className="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
-                                  {unreadMessagesCount}
-                                </span>
-                              )}
                             </Link>
                             <Link to="/parametres" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
                               <Settings className="mr-3 h-5 w-5 text-gray-500" />

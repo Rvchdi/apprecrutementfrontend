@@ -1,7 +1,7 @@
 import React from 'react';
 import { Briefcase, Search, ArrowLeft, Home } from 'lucide-react';
 import NotFound from '../assets/404.png';
-
+import FixedNavbar from './Dashboard/FixedNavbar'
 const Error404 = () => {
   const goBack = () => {
     window.history.back();
@@ -15,22 +15,11 @@ const Error404 = () => {
     <div className="min-h-screen bg-gradient-to-br from-teal-50 to-sky-50 flex flex-col">
       {/* Header */}
       <header className="bg-white border-b border-gray-100 text-gray-800 sticky top-0 z-10 shadow-sm">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="text-2xl font-bold flex items-center text-teal-600 transition-transform hover:scale-105 duration-300">
-            <Briefcase className="mr-2" size={32} />
-            JobConnect
-          </div>
-          <nav className="space-x-6">
-            <a href="/" className="hover:text-teal-500 transition-colors duration-300">Accueil</a>
-            <a href="/offres" className="hover:text-teal-500 transition-colors duration-300">Offres</a>
-            <a href="/about" className="hover:text-teal-500 transition-colors duration-300">À propos</a>
-            <a href="/login" className="bg-teal-500 text-white px-4 py-2 rounded-lg hover:bg-teal-600 transition-all duration-300 hover:shadow-lg">Connexion</a>
-          </nav>
-        </div>
+        <FixedNavbar />
       </header>
 
       {/* Main Content */}
-      <div className="flex-grow flex items-center justify-center px-4 py-8">
+      <div className="flex-grow m-2 flex items-center justify-center px-4 py-8">
         <div className="max-w-3xl w-full bg-white rounded-xl shadow-lg overflow-hidden flex flex-col">
           {/* Error Message */}
           <div className="p-8 text-center">

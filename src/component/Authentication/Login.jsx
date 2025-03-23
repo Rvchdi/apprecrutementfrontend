@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Lock, 
   Mail, 
   ArrowRight,
   Briefcase,
-  AlertCircle
+  AlertCircle,
+  CheckCircle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -22,6 +23,29 @@ const Login = () => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  // Fonction pour vérifier si l'email est vérifié
+  const isEmailVerified = (user, responseData) => {
+    // Vérifie si email_verified_at existe, n'est pas null, n'est pas undefined, et n'est pas une chaîne vide
+    const hasVerifiedTimestamp = user && 
+                               user.email_verified_at !== null && 
+                               user.email_verified_at !== undefined && 
+                               user.email_verified_at !== "";
+    
+    // Vérifie également le flag email_verified dans la réponse
+    const hasVerifiedFlag = responseData && responseData.email_verified === true;
+    
+    return hasVerifiedTimestamp || hasVerifiedFlag;
+  };
+
+  // Vérifier si l'utilisateur est déjà connecté au chargement
+  useEffect(() => {
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      navigate('/dashboard');
+    }
+  }, [navigate]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -37,9 +61,10 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setSuccess('');
 
     try {
-      // Récupérer le cookie CSRF pour Laravel Sanctum
+      // Récupérer le cookie CSRF d'abord
       await axios.get('/sanctum/csrf-cookie');
 
       // Envoyer les identifiants à l'API de login
@@ -51,30 +76,42 @@ const Login = () => {
         }
       });
       
-      // Si l'authentification réussit, utilisez le token et redirigez
+      console.log("Réponse de l'API:", response.data);
+      
       const { token, user } = response.data;
       
+      // Stocker le token et les infos utilisateur
       localStorage.setItem('auth_token', token);
       localStorage.setItem('user_role', user.role);
       localStorage.setItem('user_id', user.id);
       
       // Configurer le header d'autorisation pour les futures requêtes
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      console.log('Token reçu:', token);
-
-      // Rediriger selon le rôle de l'utilisateur
-      switch(user.role) {
-        case 'etudiant':
-          navigate('/dashboard/etudiant');
-          break;
-        case 'entreprise':
-          navigate('/dashboard/entreprise');
-          break;
-        case 'admin':
-          navigate('/dashboard/admin');
-          break;
-        default:
+      
+      // Afficher un message de succès temporaire
+      setSuccess('Connexion réussie');
+      
+      // Déterminer si l'email est vérifié avec notre fonction améliorée
+      const emailVerified = isEmailVerified(user, response.data);
+      
+      // Déboguer la vérification d'email
+      console.log("Détails de vérification d'email:");
+      console.log("- user.email_verified_at:", user?.email_verified_at);
+      console.log("- Type de user.email_verified_at:", typeof user?.email_verified_at);
+      console.log("- response.data.email_verified:", response.data.email_verified);
+      console.log("- Email vérifié selon notre logique:", emailVerified);
+      
+      // Rediriger en fonction du statut de vérification d'email
+      if (!emailVerified) {
+        console.log("Redirection vers la page de vérification...");
+        setTimeout(() => {
+          navigate('/verification');
+        }, 1000);
+      } else {
+        console.log("Redirection vers le dashboard...");
+        setTimeout(() => {
           navigate('/dashboard');
+        }, 1000);
       }
     } catch (error) {
       console.error('Erreur de connexion:', error);
@@ -114,168 +151,148 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-100 text-gray-800 sticky top-0 z-10 shadow-sm">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="text-2xl font-bold flex items-center text-teal-600 transition-transform hover:scale-105 duration-300">
-            <Briefcase className="mr-2" size={32} />
-            JobConnect
-          </div>
-          <nav className="space-x-6">
-            <a href="/" className="hover:text-teal-500 transition-colors duration-300">Accueil</a>
-            <a href="/offres" className="hover:text-teal-500 transition-colors duration-300">Offres</a>
-            <a href="/about" className="hover:text-teal-500 transition-colors duration-300">À propos</a>
-          </nav>
-        </div>
-      </header>
-
-      <div className="flex items-center justify-center min-h-[calc(100vh-76px)] p-4">
-        <div className="w-full max-w-4xl h-auto md:h-[600px] bg-white shadow-xl rounded-2xl overflow-hidden flex flex-col md:flex-row">
-          {/* Left Side - Illustration (Mobile: Top) */}
-          <div className="w-full md:w-7/12 relative bg-gradient-to-br from-teal-500 to-sky-400 text-white flex items-center justify-center order-1 md:order-none">
-            {/* Gradient Overlay */}
-            <div className="absolute inset-0 bg-gradient-to-br from-teal-600 to-sky-500 opacity-90 z-10"></div>
-            
-            {/* Illustration Content */}
-            <div className="relative z-20 w-full h-full p-6">
-              <div className="flex flex-col items-center justify-center h-full">
-                <div className="w-full max-w-[300px] transform hover:scale-105 transition-transform duration-500">
-                  <img src={loginImage} alt="Login Illustration" className="w-full drop-shadow-xl" />
-                </div>
-                <div className="mt-4 text-center">
-                  <h3 className="text-xl font-semibold text-white">Connexion Rapide</h3>
-                  <p className="text-teal-100 mt-2 text-sm">Rejoignez notre plateforme et simplifiez votre recherche professionnelle</p>
-                </div>
-              </div>
-            </div>
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-4xl bg-white shadow-xl rounded-2xl overflow-hidden flex flex-col md:flex-row">
+        {/* Left Side - Illustration (Mobile: Bottom) */}
+        <div className="w-full md:w-1/2 bg-gradient-to-r from-teal-500 to-emerald-400 p-8 flex flex-col justify-center order-2 md:order-1">
+          <div className="text-white mb-8">
+            <h2 className="text-3xl font-bold mb-4">Bienvenue sur JobConnect</h2>
+            <p className="text-teal-50 text-lg">
+              Connectez-vous pour accéder à votre espace personnel et retrouver vos candidatures et offres.
+            </p>
           </div>
           
-          {/* Right Side - Form (Mobile: Bottom) */}
-          <div className="w-full md:w-5/12 flex items-center justify-center p-6 order-2 md:order-none">
-            <form onSubmit={handleSubmit} className="w-full max-w-md">
-              <h2 className="text-2xl md:text-3xl font-bold mb-2 text-gray-800">
-                Bon Retour
-              </h2>
-              <p className="text-gray-600 mb-4 md:mb-6 text-sm md:text-base">
-                Connectez-vous à votre compte
-              </p>
+          <div className="mt-auto">
+            <img 
+              src={loginImage} 
+              alt="Login illustration" 
+              className="max-w-full h-auto mx-auto" 
+            />
+          </div>
+        </div>
+        
+        {/* Right Side - Form */}
+        <div className="w-full md:w-1/2 p-8 flex flex-col justify-center order-1 md:order-2">
+          <div className="mb-8">
+            <h1 className="text-2xl font-bold text-gray-800 mb-2">
+              Connexion
+            </h1>
+            <p className="text-gray-600">
+              Entrez vos identifiants pour vous connecter
+            </p>
+          </div>
 
-              {/* Message d'erreur */}
-              {error && (
-                <div className="mb-4 bg-red-50 text-red-600 p-3 rounded-lg flex items-center text-sm">
-                  <AlertCircle size={16} className="mr-2" />
-                  {error}
+          {/* Messages de statut */}
+          {error && (
+            <div className="mb-4 bg-red-50 text-red-600 p-4 rounded-lg flex items-center text-sm">
+              <AlertCircle size={16} className="mr-2 flex-shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+          
+          {success && (
+            <div className="mb-4 bg-green-50 text-green-600 p-4 rounded-lg flex items-center text-sm">
+              <CheckCircle size={16} className="mr-2 flex-shrink-0" />
+              <span>{success}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label className="block text-gray-700 mb-2 text-sm font-medium">
+                Adresse Email
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Mail className="h-5 w-5 text-gray-400" />
                 </div>
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  placeholder="exemple@email.com"
+                  className="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-900"
+                  required
+                  disabled={loading}
+                />
+              </div>
+            </div>
+            
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-gray-700 text-sm font-medium">
+                  Mot de passe
+                </label>
+                <a href="/forgot-password" className="text-sm text-teal-600 hover:text-teal-800">
+                  Mot de passe oublié?
+                </a>
+              </div>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Lock className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  type="password"
+                  name="password"
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  placeholder="••••••••"
+                  className="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-900"
+                  required
+                  disabled={loading}
+                />
+              </div>
+            </div>
+            
+            <button 
+              type="submit"
+              className={`w-full bg-teal-600 text-white py-3 rounded-lg hover:bg-teal-700 transition-all duration-300 flex items-center justify-center ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+              disabled={loading}
+            >
+              {loading ? (
+                <span className="flex items-center">
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Connexion en cours...
+                </span>
+              ) : (
+                <span className="flex items-center">
+                  Se connecter
+                  <ArrowRight className="ml-2" size={16} />
+                </span>
               )}
-
-              <div className="space-y-4 md:space-y-6">
-                <div className="relative">
-                  <label className="block text-gray-700 mb-2 text-sm">Adresse Email</label>
-                  <div className="relative flex items-center group">
-                    <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none text-gray-400 group-focus-within:text-teal-500 transition-colors duration-300">
-                      <Mail size={16} />
-                    </div>
-                    <input
-                      type="email"
-                      name="email"
-                      placeholder="Entrez votre email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      className="w-full pl-10 p-2 md:p-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-300 focus:border-transparent transition-all duration-300 shadow-sm hover:shadow-md"
-                      required
-                      disabled={loading}
-                    />
-                  </div>
-                </div>
-                
-                <div className="relative">
-                  <label className="block text-gray-700 mb-2 text-sm">Mot de Passe</label>
-                  <div className="relative flex items-center group">
-                    <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none text-gray-400 group-focus-within:text-teal-500 transition-colors duration-300">
-                      <Lock size={16} />
-                    </div>
-                    <input
-                      type="password"
-                      name="password"
-                      placeholder="Entrez votre mot de passe"
-                      value={formData.password}
-                      onChange={handleInputChange}
-                      className="w-full pl-10 p-2 md:p-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-300 focus:border-transparent transition-all duration-300 shadow-sm hover:shadow-md"
-                      required
-                      disabled={loading}
-                    />
-                  </div>
-                  <a href="/forgot-password" className="text-xs md:text-sm text-teal-500 hover:text-teal-700 mt-1 inline-block">
-                    Mot de passe oublié?
-                  </a>
-                </div>
-                
-                <button 
-                  type="submit"
-                  className={`w-full bg-teal-500 text-white p-2 md:p-3 rounded-lg hover:bg-teal-600 transition-all duration-300 hover:shadow-lg flex items-center justify-center text-sm md:text-base ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
-                  disabled={loading}
-                >
-                  {loading ? 'Connexion en cours...' : (
-                    <>Connexion <ArrowRight className="ml-2" size={16} /></>
-                  )}
-                </button>
-              </div>
+            </button>
+            
+            <div className="flex items-center py-2">
+              <div className="flex-grow h-px bg-gray-200"></div>
+              <span className="mx-4 text-gray-400 text-sm">ou</span>
+              <div className="flex-grow h-px bg-gray-200"></div>
+            </div>
+            
+            <div className="space-y-3">
+              <button 
+                type="button"
+                onClick={redirectToRegistration}
+                className="w-full border border-teal-600 text-teal-600 py-3 rounded-lg hover:bg-teal-50 transition-all duration-300 flex items-center justify-center"
+              >
+                Créer un compte étudiant
+              </button>
               
-              {/* Register Button */}
-              <div className="text-center mt-6">
-                <p className="text-gray-600 text-xs md:text-sm mb-2">
-                  Vous n'avez pas de compte?
-                </p>
-                <button 
-                  type="button"
-                  onClick={redirectToRegistration}
-                  className="w-full border border-teal-500 text-teal-500 p-2 md:p-3 rounded-lg hover:bg-teal-50 transition-all duration-300 hover:shadow-md flex items-center justify-center text-sm md:text-base"
-                  disabled={loading}
-                >
-                  Créer un compte étudiant
-                </button>
-              </div>
-              <div className="mt-4 relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-200"></div>
-                </div>
-                <div className="relative flex justify-center">
-                  <span className="bg-white px-4 text-xs text-gray-500">ou</span>
-                </div>
-              </div>
-
               <button 
                 type="button"
                 onClick={() => navigate('/registration/company')}
-                className="w-full mt-4 bg-blue-600 text-white p-2 md:p-3 rounded-lg hover:bg-blue-700 transition-all duration-300 hover:shadow-lg flex items-center justify-center text-sm md:text-base"
-                disabled={loading}
+                className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-all duration-300 flex items-center justify-center"
               >
                 <Briefcase className="mr-2" size={16} />
                 Inscription Entreprise
               </button>
-            </form>
-          </div>
+            </div>
+          </form>
         </div>
       </div>
-
-      {/* Footer */}
-      <footer className="bg-white text-gray-800 py-8 border-t border-gray-100">
-        <div className="container mx-auto px-4 text-center">
-          <div className="flex justify-center space-x-4 mb-4">
-            <a href="#" className="bg-gray-100 p-2 rounded-full hover:bg-teal-50 hover:text-teal-500 transition-all duration-300">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path fillRule="evenodd" d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" clipRule="evenodd"></path></svg>
-            </a>
-            <a href="#" className="bg-gray-100 p-2 rounded-full hover:bg-teal-50 hover:text-teal-500 transition-all duration-300">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.29 20.251c7.547 0 11.675-6.253 11.675-11.675 0-.178 0-.355-.012-.53A8.348 8.348 0 0022 5.92a8.19 8.19 0 01-2.357.646 4.118 4.118 0 001.804-2.27 8.224 8.224 0 01-2.605.996 4.107 4.107 0 00-6.993 3.743 11.65 11.65 0 01-8.457-4.287 4.106 4.106 0 001.27 5.477A4.072 4.072 0 012.8 9.713v.052a4.105 4.105 0 003.292 4.022 4.095 4.095 0 01-1.853.07 4.108 4.108 0 003.834 2.85A8.233 8.233 0 012 18.407a11.616 11.616 0 006.29 1.84"></path></svg>
-            </a>
-            <a href="#" className="bg-gray-100 p-2 rounded-full hover:bg-teal-50 hover:text-teal-500 transition-all duration-300">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path fillRule="evenodd" d="M12.315 2c2.43 0 2.784.013 3.808.06 1.064.049 1.791.218 2.427.465a4.902 4.902 0 011.772 1.153 4.902 4.902 0 011.153 1.772c.247.636.416 1.363.465 2.427.048 1.067.06 1.407.06 4.123v.08c0 2.643-.012 2.987-.06 4.043-.049 1.064-.218 1.791-.465 2.427a4.902 4.902 0 01-1.153 1.772 4.902 4.902 0 01-1.772 1.153c-.636.247-1.363.416-2.427.465-1.067.048-1.407.06-4.123.06h-.08c-2.643 0-2.987-.012-4.043-.06-1.064-.049-1.791-.218-2.427-.465a4.902 4.902 0 01-1.772-1.153 4.902 4.902 0 01-1.153-1.772c-.247-.636-.416-1.363-.465-2.427-.047-1.024-.06-1.379-.06-3.808v-.63c0-2.43.013-2.784.06-3.808.049-1.064.218-1.791.465-2.427a4.902 4.902 0 011.153-1.772A4.902 4.902 0 015.45 2.525c.636-.247 1.363-.416 2.427-.465C8.901 2.013 9.256 2 11.685 2h.63zm-.081 1.802h-.468c-2.456 0-2.784.011-3.807.058-.975.045-1.504.207-1.857.344-.467.182-.8.398-1.15.748-.35.35-.566.683-.748 1.15-.137.353-.3.882-.344 1.857-.047 1.023-.058 1.351-.058 3.807v.468c0 2.456.011 2.784.058 3.807.045.975.207 1.504.344 1.857.182.466.399.8.748 1.15.35.35.683.566 1.15.748.353.137.882.3 1.857.344 1.054.048 1.37.058 4.041.058h.08c2.597 0 2.917-.01 3.96-.058.976-.045 1.505-.207 1.858-.344.466-.182.8-.398 1.15-.748.35-.35.566-.683.748-1.15.137-.353.3-.882.344-1.857.048-1.055.058-1.37.058-4.041v-.08c0-2.597-.01-2.917-.058-3.96-.045-.976-.207-1.505-.344-1.858a3.097 3.097 0 00-.748-1.15 3.098 3.098 0 00-1.15-.748c-.353-.137-.882-.3-1.857-.344-1.023-.047-1.351-.058-3.807-.058zM12 6.865a5.135 5.135 0 110 10.27 5.135 5.135 0 010-10.27zm0 1.802a3.333 3.333 0 100 6.666 3.333 3.333 0 000-6.666zm5.338-3.205a1.2 1.2 0 110 2.4 1.2 1.2 0 010-2.4z" clipRule="evenodd"></path></svg>
-            </a>
-          </div>
-          <p className="text-gray-500 text-sm">© 2025 JobConnect. Tous droits réservés.</p>
-        </div>
-      </footer>
     </div>
   );
 };
