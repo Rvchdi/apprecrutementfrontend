@@ -3,10 +3,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { PlusCircle, Clock, MapPin, Users, Eye, Edit, Trash2, AlertCircle, Filter, Search } from 'lucide-react';
 import axios from 'axios';
 
-const OffersContainer = () => {
+const OpportunitiesWidget = ({ offres: initialOffres, loading: initialLoading }) => {
   const navigate = useNavigate();
-  const [offres, setOffres] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [offres, setOffres] = useState(initialOffres || []);
+  const [loading, setLoading] = useState(initialLoading || true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState({
@@ -14,8 +14,14 @@ const OffersContainer = () => {
     statut: ''
   });
 
-  // Récupérer les offres de l'entreprise
+  // Récupérer les offres de l'entreprise si elles ne sont pas fournies via les props
   useEffect(() => {
+    if (initialOffres) {
+      setOffres(initialOffres);
+      setLoading(false);
+      return;
+    }
+
     const fetchOffres = async () => {
       try {
         setLoading(true);
@@ -40,7 +46,7 @@ const OffersContainer = () => {
     };
 
     fetchOffres();
-  }, []);
+  }, [initialOffres]);
 
   // Filtrer les offres
   const filteredOffres = offres.filter(offre => {
@@ -264,4 +270,4 @@ const OffersContainer = () => {
   );
 };
 
-export default OffersContainer;
+export default OpportunitiesWidget;

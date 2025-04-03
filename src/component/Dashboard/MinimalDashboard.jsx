@@ -15,6 +15,9 @@ import TestsWidget from './Widgets/TestsWidget';
 import NotificationsWidget from './Widgets/NotificationsWidget';
 import SettingsWidget from './Widgets/SettingsWidget';
 
+// Conteneurs
+import CandidatesContainer from './Containers/CandidatesContainer';
+
 import { AlertCircle } from 'lucide-react';
 
 const MinimalDashboard = () => {
@@ -186,22 +189,6 @@ const MinimalDashboard = () => {
     }
   };
 
-  // Conteneurs d'offres d'entreprise
-  const OffersContainer = () => (
-    <div className="bg-white rounded-lg shadow-sm p-6">
-      <h2 className="text-lg font-medium text-gray-800 mb-4">Mes offres publiées</h2>
-      {/* Contenu des offres de l'entreprise */}
-    </div>
-  );
-
-  // Conteneur des candidatures pour les entreprises
-  const CandidatesContainer = () => (
-    <div className="bg-white rounded-lg shadow-sm p-6">
-      <h2 className="text-lg font-medium text-gray-800 mb-4">Candidatures reçues</h2>
-      {/* Contenu des candidatures reçues */}
-    </div>
-  );
-
   // Rendu conditionnel en fonction de l'onglet actif
   const renderContent = () => {
     if (loading) {
@@ -239,7 +226,7 @@ const MinimalDashboard = () => {
             />
             {user?.role === 'entreprise' && (
               <div className="col-span-1">
-                <OffersContainer />
+                <OpportunitiesWidget />
               </div>
             )}
             <NotificationsWidget 
@@ -287,7 +274,7 @@ const MinimalDashboard = () => {
           />
         );
       case 'offers':
-        return <OffersContainer />;
+        return <OpportunitiesWidget />;
       case 'candidates':
         return <CandidatesContainer />;
       case 'settings':

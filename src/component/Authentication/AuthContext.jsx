@@ -77,14 +77,17 @@ export const AuthProvider = ({ children }) => {
     return false;
   }, []);
 
-  // Vérifier l'authentification au chargement initial seulement
+  // Vérifier l'authentification au chargement initial
   useEffect(() => {
-    checkAuth();
+    const initAuth = async () => {
+      await checkAuth();
+    };
+    
+    initAuth();
   }, []); // Dépendance vide pour exécuter une seule fois
 
   // Fonction de connexion
   const login = async (credentials) => {
-    setLoading(true);
     setAuthError(null);
     
     try {
@@ -111,12 +114,8 @@ export const AuthProvider = ({ children }) => {
       setUser(user);
       setIsAuthenticated(true);
       
-      // Déterminer si l'email est vérifié
-      const isEmailVerified = 
-        (user && user.email_verified_at !== null && 
-         user.email_verified_at !== undefined && 
-         user.email_verified_at !== "") || 
-        (email_verified === true);
+      // Utiliser directement la valeur email_verified du backend
+      const isEmailVerified = email_verified === true;
       
       return { 
         success: true, 
@@ -140,8 +139,6 @@ export const AuthProvider = ({ children }) => {
         success: false, 
         message: errorMessage
       };
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -169,12 +166,81 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Fonction pour gérer le mot de passe oublié
+  const forgotPassword = async (email) => {
+    try {
+      await axios.get('/sanctum/csrf-cookie');
+      const response = await axios.post('/api/auth/forgot-password', { email });
+      return { success: true, message: response.data.message || 'Instructions envoyées par email' };
+    } catch (error) {
+      console.error('Erreur lors de la demande de réinitialisation:', error);
+      const errorMessage = error.response?.data?.message || 'Une erreur est survenue';
+      return { success: false, message: errorMessage };
+    }
+  };
+
+  // Fonction pour réinitialiser le mot de passe
+  const resetPassword = async (data) => {
+    try {
+      await axios.get('/sanctum/csrf-cookie');
+      const response = await axios.post('/api/auth/reset-password', data);
+      return { success: true, message: response.data.message || 'Mot de passe réinitialisé avec succès' };
+    } catch (error) {
+      console.error('Erreur lors de la réinitialisation:', error);
+      const errorMessage = error.response?.data?.message || 'Une erreur est survenue';
+      return { success: false, message: errorMessage };
+    }
+  };
+
   // Fonction pour vérifier si l'utilisateur est vérifié
-  const isUserVerified = () => {
-    return user && 
-           user.email_verified_at !== null && 
-           user.email_verified_at !== undefined && 
-           user.email_verified_at !== "";
+  const isUserVerified = async () => {
+    try {
+      // Demander au backend si l'email est vérifié
+      console.log("Demande de vérification d'email au backend...");
+      const response = await axios.get('/api/auth/check-email-verified');
+      
+      console.log("Réponse du backend pour vérification d'email:", response.data);
+      
+      // Vérifier explicitement que la valeur est à true
+      const verified = response.data.email_verified === true;
+      console.log("L'email est-il vérifié selon le backend?", verified);
+      
+      // Vérifier les données de debug
+      if (response.data.debug_info) {
+        console.log("Informations de debug:", response.data.debug_info);
+      }
+      
+      return verified;
+    } catch (error) {
+      console.error('Erreur lors de la vérification du statut de l\'email:', error);
+      
+      // Fallback en cas d'erreur - vérifier localement
+      const localVerified = user && 
+                           user.email_verified_at !== null && 
+                           user.email_verified_at !== undefined && 
+                           user.email_verified_at !== "";
+      
+      console.log("Fallback local pour la vérification d'email:", {
+        user_email: user?.email,
+        email_verified_at: user?.email_verified_at, 
+        is_verified: localVerified
+      });
+      
+      return localVerified;
+    }
+  };
+
+  // Fonction pour renvoyer l'email de vérification
+  const resendVerificationEmail = async () => {
+    try {
+      await axios.get('/sanctum/csrf-cookie');
+      const response = await axios.post('/api/auth/resend-verification-email');
+      return { success: true, message: response.data.message || 'Email de vérification envoyé' };
+    } catch (error) {
+      console.error('Erreur lors de l\'envoi de l\'email de vérification:', error);
+      const errorMessage = error.response?.data?.message || 'Une erreur est survenue';
+      return { success: false, message: errorMessage };
+    }
   };
 
   // Valeur du contexte
@@ -186,7 +252,10 @@ export const AuthProvider = ({ children }) => {
     login,
     logout,
     checkAuth,
-    isUserVerified
+    isUserVerified,
+    forgotPassword,
+    resetPassword,
+    resendVerificationEmail
   };
 
   return (

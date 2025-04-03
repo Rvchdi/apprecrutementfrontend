@@ -8,44 +8,47 @@ import {
   CheckCircle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import loginImage from '../../assets/Login.png';
-
-// Configuration d'axios pour les cookies CSRF et l'authentification
-axios.defaults.withCredentials = true; // Nécessaire pour les cookies Sanctum
-axios.defaults.baseURL = 'http://localhost:8000'; // Ajustez l'URL selon votre configuration
+import { useAuth } from './AuthContext';
 
 const Login = () => {
   const navigate = useNavigate();
+  const { login, isAuthenticated, loading, user } = useAuth();
+  
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   });
-  const [loading, setLoading] = useState(false);
+  const [localLoading, setLocalLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Fonction pour vérifier si l'email est vérifié
-  const isEmailVerified = (user, responseData) => {
-    // Vérifie si email_verified_at existe, n'est pas null, n'est pas undefined, et n'est pas une chaîne vide
-    const hasVerifiedTimestamp = user && 
-                               user.email_verified_at !== null && 
-                               user.email_verified_at !== undefined && 
-                               user.email_verified_at !== "";
-    
-    // Vérifie également le flag email_verified dans la réponse
-    const hasVerifiedFlag = responseData && responseData.email_verified === true;
-    
-    return hasVerifiedTimestamp || hasVerifiedFlag;
-  };
-
   // Vérifier si l'utilisateur est déjà connecté au chargement
   useEffect(() => {
-    const token = localStorage.getItem('auth_token');
-    if (token) {
-      navigate('/dashboard');
-    }
-  }, [navigate]);
+    const checkAuthStatus = async () => {
+      if (isAuthenticated && user) {
+        try {
+          // Demander au backend si l'email est vérifié
+          const response = await axios.get('/api/auth/check-email-verified');
+          if (response.data.email_verified === true) {
+            navigate('/dashboard');
+          } else {
+            navigate('/verification');
+          }
+        } catch (error) {
+          console.error('Erreur lors de la vérification du statut de l\'email:', error);
+          // Fallback en cas d'erreur
+          if (user.email_verified_at) {
+            navigate('/dashboard');
+          } else {
+            navigate('/verification');
+          }
+        }
+      }
+    };
+    
+    checkAuthStatus();
+  }, [isAuthenticated, user, navigate]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -59,96 +62,40 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
+    setLocalLoading(true);
     setError('');
     setSuccess('');
 
     try {
-      // Récupérer le cookie CSRF d'abord
-      await axios.get('/sanctum/csrf-cookie');
-
-      // Envoyer les identifiants à l'API de login
-      const response = await axios.post('/api/auth/login', formData, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest'
-        }
-      });
+      const result = await login(formData);
       
-      console.log("Réponse de l'API:", response.data);
-      
-      const { token, user } = response.data;
-      
-      // Stocker le token et les infos utilisateur
-      localStorage.setItem('auth_token', token);
-      localStorage.setItem('user_role', user.role);
-      localStorage.setItem('user_id', user.id);
-      
-      // Configurer le header d'autorisation pour les futures requêtes
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      
-      // Afficher un message de succès temporaire
-      setSuccess('Connexion réussie');
-      
-      // Déterminer si l'email est vérifié avec notre fonction améliorée
-      const emailVerified = isEmailVerified(user, response.data);
-      
-      // Déboguer la vérification d'email
-      console.log("Détails de vérification d'email:");
-      console.log("- user.email_verified_at:", user?.email_verified_at);
-      console.log("- Type de user.email_verified_at:", typeof user?.email_verified_at);
-      console.log("- response.data.email_verified:", response.data.email_verified);
-      console.log("- Email vérifié selon notre logique:", emailVerified);
-      
-      // Rediriger en fonction du statut de vérification d'email
-      if (!emailVerified) {
-        console.log("Redirection vers la page de vérification...");
-        setTimeout(() => {
-          navigate('/verification');
-        }, 1000);
+      if (result.success) {
+        setSuccess('Connexion réussie');
+        
+        // La redirection sera gérée par le useEffect qui surveille isAuthenticated
       } else {
-        console.log("Redirection vers le dashboard...");
-        setTimeout(() => {
-          navigate('/dashboard');
-        }, 1000);
+        setError(result.message || 'Identifiants incorrects');
       }
     } catch (error) {
       console.error('Erreur de connexion:', error);
-      
-      if (error.response) {
-        // Gestion des erreurs du serveur (validation, identifiants incorrects, etc.)
-        if (error.response.status === 422) {
-          // Erreurs de validation
-          setError('Veuillez vérifier vos identifiants');
-          
-          if (error.response.data && error.response.data.errors) {
-            const errorMessages = Object.values(error.response.data.errors).flat();
-            if (errorMessages.length > 0) {
-              setError(errorMessages[0]);
-            }
-          }
-        } else if (error.response.status === 401) {
-          // Non autorisé
-          setError(error.response.data.message || 'Email ou mot de passe incorrect');
-        } else {
-          setError('Une erreur s\'est produite. Veuillez réessayer.');
-        }
-      } else if (error.request) {
-        // La requête a été faite mais pas de réponse reçue
-        setError('Impossible de se connecter au serveur. Vérifiez votre connexion internet.');
-      } else {
-        // Erreurs réseau ou autres
-        setError('Une erreur inattendue s\'est produite. Veuillez réessayer.');
-      }
+      setError('Une erreur inattendue s\'est produite. Veuillez réessayer.');
     } finally {
-      setLoading(false);
+      setLocalLoading(false);
     }
   };
 
   const redirectToRegistration = () => {
     navigate('/registration');
   };
+
+  // Si déjà en train de charger dans le contexte d'authentification
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="w-16 h-16 border-t-4 border-teal-500 border-solid rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -214,7 +161,7 @@ const Login = () => {
                   placeholder="exemple@email.com"
                   className="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-900"
                   required
-                  disabled={loading}
+                  disabled={localLoading}
                 />
               </div>
             </div>
@@ -240,17 +187,17 @@ const Login = () => {
                   placeholder="••••••••"
                   className="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-gray-900"
                   required
-                  disabled={loading}
+                  disabled={localLoading}
                 />
               </div>
             </div>
             
             <button 
               type="submit"
-              className={`w-full bg-teal-600 text-white py-3 rounded-lg hover:bg-teal-700 transition-all duration-300 flex items-center justify-center ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
-              disabled={loading}
+              className={`w-full bg-teal-600 text-white py-3 rounded-lg hover:bg-teal-700 transition-all duration-300 flex items-center justify-center ${localLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+              disabled={localLoading}
             >
-              {loading ? (
+              {localLoading ? (
                 <span className="flex items-center">
                   <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
