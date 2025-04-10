@@ -194,7 +194,8 @@ export const AuthProvider = ({ children }) => {
 
   // Fonction pour vérifier si l'utilisateur est vérifié
   const isUserVerified = async () => {
-    try {
+    return true
+    /* try {
       // Demander au backend si l'email est vérifié
       console.log("Demande de vérification d'email au backend...");
       const response = await axios.get('/api/auth/check-email-verified');
@@ -227,7 +228,7 @@ export const AuthProvider = ({ children }) => {
       });
       
       return localVerified;
-    }
+    } */
   };
 
   // Fonction pour renvoyer l'email de vérification

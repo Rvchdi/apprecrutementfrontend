@@ -8,6 +8,7 @@ import {
   Settings, 
   LogOut,
   Book,
+  Calendar,
   ChevronRight,
   ChevronLeft
 } from 'lucide-react';
@@ -19,13 +20,15 @@ const DashboardSidebar = ({
   setSidebarCollapsed, 
   userData,
   handleLogout,
-  unreadNotifications = 0
+  unreadNotifications = 0,
+  upcomingEntretiens = 0
 }) => {
   // Configurer les éléments du menu en fonction du rôle
   const getMenuItems = () => {
     const commonItems = [
       { id: 'overview', label: 'Tableau de bord', icon: <Monitor size={20} /> },
       { id: 'profile', label: 'Profil', icon: <User size={20} /> },
+      { id: 'entretiens', label: 'Entretiens', icon: <Calendar size={20} />, badge: upcomingEntretiens },
       { id: 'notifications', label: 'Notifications', icon: <Bell size={20} />, badge: unreadNotifications },
       { id: 'settings', label: 'Paramètres', icon: <Settings size={20} /> }
     ];

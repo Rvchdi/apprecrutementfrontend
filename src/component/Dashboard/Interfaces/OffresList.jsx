@@ -88,9 +88,31 @@ const OffresList = () => {
       
       const response = await axios.get(`/api/offres?${params.toString()}`);
       
-      setOffres(response.data.offres.data || []);
-      setFilteredOffres(response.data.offres.data || []);
-      setTotalPages(Math.ceil((response.data.offres.total || 0) / itemsPerPage));
+      if (response && response.data) {
+        // Vérifier si la réponse a la structure attendue
+        if (response.data.offres && response.data.offres.data) {
+          // Structure Laravel Pagination
+          setOffres(response.data.offres.data);
+          setFilteredOffres(response.data.offres.data);
+          setTotalPages(Math.ceil(response.data.offres.total / itemsPerPage));
+        } else if (Array.isArray(response.data.offres)) {
+          // Structure simple tableau
+          setOffres(response.data.offres);
+          setFilteredOffres(response.data.offres);
+          setTotalPages(Math.ceil(response.data.offres.length / itemsPerPage));
+        } else {
+          // Structure inattendue, utiliser un tableau vide
+          console.error("Structure de réponse inattendue:", response.data);
+          setOffres([]);
+          setFilteredOffres([]);
+          setTotalPages(1);
+        }
+      } else {
+        // Pas de réponse valide
+        setOffres([]);
+        setFilteredOffres([]);
+        setTotalPages(1);
+      }
       setLoading(false);
     } catch (error) {
       console.error('Erreur lors du chargement des offres:', error);
