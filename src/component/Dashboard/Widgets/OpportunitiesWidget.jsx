@@ -93,15 +93,44 @@ const OpportunitiesWidget = ({ offres: initialOffres, loading: initialLoading })
   const handleDelete = async (id) => {
     if (window.confirm('Êtes-vous sûr de vouloir supprimer cette offre?')) {
       try {
-        await axios.delete(`/api/offres/${id}`);
+        // Vérifier que l'ID est valide
+        if (!id) {
+          console.error("ID d'offre invalide:", id);
+          alert("Impossible de supprimer cette offre: ID invalide");
+          return;
+        }
+        
+        console.log(`Tentative de suppression de l'offre avec l'ID: ${id}`);
+        
+        // Ajouter des en-têtes explicites
+        const response = await axios.delete(`/api/offres/${id}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        console.log("Réponse de suppression:", response);
+        
+        // Mettre à jour l'état local uniquement si la requête réussit
         setOffres(offres.filter(offre => offre.id !== id));
+        alert("Offre supprimée avec succès");
       } catch (error) {
         console.error("Erreur lors de la suppression:", error);
-        alert("Une erreur est survenue lors de la suppression de l'offre.");
+        
+        // Message d'erreur plus informatif
+        if (error.response) {
+          console.error("Détails de l'erreur:", error.response.data);
+          alert(`Erreur lors de la suppression: ${error.response.status} - ${error.response.data.message || "Erreur serveur"}`);
+        } else if (error.request) {
+          alert("Le serveur n'a pas répondu à la demande de suppression. Vérifiez votre connexion.");
+        } else {
+          alert(`Une erreur est survenue: ${error.message}`);
+        }
       }
     }
   };
-
   // Affichage pendant le chargement
   if (loading) {
     return (

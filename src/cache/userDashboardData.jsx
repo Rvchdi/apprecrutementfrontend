@@ -10,9 +10,10 @@ export const useDashboardData = (user) => {
     opportunities: [],
     tests: [],
     notifications: [],
+    entretiens: [],
     loading: true,
     error: null,
-    source: 'network' // 'network', 'cache', ou 'fallback'
+    source: 'network'
   });
 
   // Initialiser le hook de cache
@@ -32,6 +33,8 @@ export const useDashboardData = (user) => {
     }
 
     // Si pas de cache, récupérer depuis le réseau
+    setDashboardData(prev => ({...prev, loading: true, error: null}));
+    
     try {
       // Configuration des requêtes selon le rôle
       const requestConfigs = {
@@ -51,58 +54,80 @@ export const useDashboardData = (user) => {
 
       // Sélectionner les requêtes en fonction du rôle
       const requests = requestConfigs[user?.role] || [];
+      const collectedData = {};
+      
+      for (const config of requests) {
+        try {
+          const response = await axios.get(config.url, { timeout: 20000 });
+          
+          // Extraire les données selon la structure de la réponse
+          switch (config.key) {
+            case 'profile':
+              collectedData[config.key] = response.data || {};
+              break;
+              
+            case 'notifications':
+              collectedData[config.key] = response.data && response.data.notifications ? 
+                response.data.notifications : [];
+              break;
+              
+            case 'opportunities':
+              collectedData[config.key] = response.data && response.data.offres ? 
+                response.data.offres : [];
+              break;
+              
+            case 'applications':
+              collectedData[config.key] = response.data && response.data.candidatures ? 
+                response.data.candidatures : [];
+              break;
+              
+            case 'tests':
+              collectedData[config.key] = response.data && response.data.tests ? 
+                response.data.tests : [];
+              break;
+              
+            default:
+              collectedData[config.key] = response.data || [];
+          }
+          
+          // Mise à jour progressive de l'état
+          setDashboardData(prev => ({
+            ...prev,
+            [config.key]: collectedData[config.key]
+          }));
+        } catch (error) {
+          collectedData[config.key] = [];
+          if (error.response && error.response.status === 401) {
+            throw new Error('Session expirée');
+          }
+        }
+      }
 
-      // Requêtes parallèles avec timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 secondes max
-
-      const responses = await Promise.all(
-        requests.map(config => 
-          axios.get(config.url, { 
-            signal: controller.signal 
-          }).catch(error => {
-            console.error(`Erreur lors de la requête ${config.url}:`, error);
-            return { data: null };
-          })
-        )
-      );
-
-      clearTimeout(timeoutId);
-
-      // Construire les données du dashboard
-      const newDashboardData = requests.reduce((acc, config, index) => {
-        const response = responses[index];
-        acc[config.key] = response.data || [];
-        return acc;
-      }, {});
-
-      // Mettre à jour l'état
+      // Finaliser l'état
       const updatedData = {
-        ...newDashboardData,
+        ...collectedData,
         loading: false,
         error: null,
-        source: 'network'
+        source: 'network',
+        lastUpdated: new Date().toISOString()
       };
-
-      setDashboardData(updatedData);
+      
+      setDashboardData(prev => ({
+        ...prev,
+        ...updatedData,
+        loading: false
+      }));
 
       // Mettre en cache les données
       setCachedData(updatedData);
 
     } catch (error) {
-      console.error('Erreur lors du chargement du dashboard:', error);
-      
-      // Gestion des erreurs avec fallback
-      setDashboardData({
-        profile: {},
-        applications: [],
-        opportunities: [],
-        tests: [],
-        notifications: [],
+      setDashboardData(prev => ({
+        ...prev,
         loading: false,
         error: error.message || 'Erreur de chargement',
         source: 'fallback'
-      });
+      }));
     }
   }, [user, getCachedData, setCachedData]);
 
@@ -113,5 +138,13 @@ export const useDashboardData = (user) => {
     }
   }, [user, fetchDashboardData]);
 
-  return dashboardData;
+  // Fonction pour forcer un rafraîchissement des données
+  const refreshData = useCallback(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
+
+  return {
+    ...dashboardData,
+    refreshData
+  };
 };

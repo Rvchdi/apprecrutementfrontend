@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import CompetenceSelector from './CompetenceSelector';
 import { 
   User, 
   Mail, 
@@ -21,6 +22,8 @@ import axios from 'axios';
 
 const MultiStepRegistration = () => {
   // État pour suivre l'étape actuelle (0, 1, 2)
+  const [showCompetenceSelector, setShowCompetenceSelector] = useState(false);
+  const [selectedCompetences, setSelectedCompetences] = useState([]);
   const [currentStep, setCurrentStep] = useState(0);
   
   // État pour suivre la direction de l'animation (1 pour avant, -1 pour arrière)
@@ -171,17 +174,11 @@ const MultiStepRegistration = () => {
         const dataToSend = new FormData();
         
         // Ajouter toutes les données du formulaire
-        Object.keys(formData).forEach(key => {
-          if (key === 'competences' && formData[key]) {
-            // Convertir la chaîne de compétences séparées par des virgules en tableau
-            const competencesArray = formData[key].split(',').map(comp => comp.trim());
-            dataToSend.append('competences', JSON.stringify(competencesArray));
-          } else if (key === 'cv_file' && formData[key]) {
-            dataToSend.append('cv_file', formData[key]);
-          } else if (formData[key] !== null && formData[key] !== undefined) {
-            dataToSend.append(key, formData[key]);
-          }
-        });
+        if (formData.competences) {
+          // Convertir les compétences sélectionnées en tableau d'identifiants
+          const competencesArray = selectedCompetences.map(comp => comp.id);
+          dataToSend.append('competences', JSON.stringify(competencesArray));
+      }
         
         // Envoyer la requête au backend
         const response = await axios.post('http://localhost:8000/api/auth/register', dataToSend, {
@@ -923,22 +920,24 @@ const MultiStepRegistration = () => {
                 
                 <div className="relative md:col-span-2">
                   <label className="block text-gray-700 mb-2 text-sm">Compétences</label>
-                  <div className="relative flex items-center group">
-                    <div className="absolute left-3 top-8 transform -translate-y-1/2 pointer-events-none text-gray-400 group-focus-within:text-teal-500 transition-colors duration-300">
-                      <Award size={16} />
-                    </div>
-                    <textarea
-                      name="competences"
-                      placeholder="Listez vos compétences principales (séparées par des virgules)"
-                      value={formData.competences}
-                      onChange={handleInputChange}
-                      className={`w-full pl-10 p-3 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-300 shadow-sm hover:shadow-md ${
-                        errors.competences ? 'border-red-500 focus:ring-red-200' : 'border-gray-300 focus:ring-teal-300'
-                      }`}
-                      rows="3"
+                  <button
+                    type="button"
+                    onClick={() => setShowCompetenceSelector(true)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-left"
+                  >
+                    {selectedCompetences.length === 0 
+                      ? 'Sélectionner des compétences' 
+                      : selectedCompetences.map(c => c.nom).join(', ')
+                    }
+                  </button>
+                  
+                  {showCompetenceSelector && (
+                    <CompetenceSelector
+                      selectedCompetences={selectedCompetences}
+                      onCompetencesChange={setSelectedCompetences}
+                      onClose={() => setShowCompetenceSelector(false)}
                     />
-                  </div>
-                  {errors.competences && <p className="text-red-500 text-xs mt-1">{errors.competences}</p>}
+                  )}
                 </div>
                 
                 <div className="relative md:col-span-2">

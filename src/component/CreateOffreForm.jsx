@@ -397,7 +397,11 @@ const CreateOffreForm = () => {
       
       // Rediriger vers la liste des offres après un délai
       setTimeout(() => {
-        navigate('/dashboard?tab=offers');
+        const dashboardCache = localStorage.getItem('dashboard_data');
+        if (dashboardCache) {
+          localStorage.removeItem('dashboard_data');
+        }
+        navigate('/dashboard?tab=offers&refresh=true');
       }, 2000);
     } catch (error) {
       console.error('Erreur lors de la sauvegarde de l\'offre:', error);

@@ -17,6 +17,7 @@ const ApplicationsWidget = lazy(() => import('./Widgets/ApplicationWidget'));
 const OpportunitiesWidget = lazy(() => import('./Widgets/OpportunitiesWidget'));
 const TestsWidget = lazy(() => import('./Widgets/TestsWidget'));
 const NotificationsWidget = lazy(() => import('./Widgets/NotificationsWidget'));
+const EntretienWidget = lazy(() => import('./Widgets/EntretiensWidget'));
 const SettingsWidget = lazy(() => import('./Widgets/SettingsWidget'));
 const CandidatesContainer = lazy(() => import('./Containers/CandidatesContainer'));
 const DashboardSidebar = lazy(() => import('./DashboardSidebar'));
@@ -41,6 +42,12 @@ const MinimalDashboard = () => {
 
   // Récupération des données du dashboard
   const dashboardData = useDashboardData(user);
+  
+  // Log pour débogage
+  useEffect(() => {
+    console.log("Dashboard Data:", dashboardData);
+    console.log("Active Tab:", activeTab);
+  }, [dashboardData, activeTab]);
 
   // Gestionnaire de déconnexion
   const handleLogout = useCallback(async () => {
@@ -50,6 +57,23 @@ const MinimalDashboard = () => {
       console.error('Erreur lors de la déconnexion:', err);
     }
   }, [logout]);
+
+  // Gestionnaire pour marquer une notification comme lue
+  const handleMarkNotificationAsRead = useCallback(async (id) => {
+    try {
+      await axios.patch(`/api/notifications/${id}/read`);
+      // Mettre à jour l'état localement
+      if (dashboardData.notifications) {
+        const updatedNotifications = dashboardData.notifications.map(notif => 
+          notif.id === id ? { ...notif, lu: true } : notif
+        );
+        
+        dashboardData.notifications = updatedNotifications;
+      }
+    } catch (error) {
+      console.error('Erreur lors du marquage de la notification:', error);
+    }
+  }, [dashboardData]);
 
   // Rendu du contenu du dashboard
   const renderContent = useMemo(() => {
@@ -75,6 +99,25 @@ const MinimalDashboard = () => {
     const tests = Array.isArray(dashboardData.tests) 
       ? dashboardData.tests 
       : [];
+      
+    // Mapper les opportunités (offres) avec un fallback
+    const opportunities = Array.isArray(dashboardData.opportunities)
+      ? dashboardData.opportunities
+      : [];
+      
+    // Mapper les candidatures avec un fallback
+    const applications = Array.isArray(dashboardData.applications)
+      ? dashboardData.applications
+      : [];
+
+    // Log pour débogage des données disponibles
+    console.log("Content rendering with:", {
+      notificationsCount: notifications.length,
+      testsCount: tests.length,
+      opportunitiesCount: opportunities.length,
+      applicationsCount: applications.length,
+      activeTab
+    });
 
     // Mapping des onglets aux widgets
     const renderMap = {
@@ -88,13 +131,13 @@ const MinimalDashboard = () => {
               />
             </div>
             <ApplicationsWidget 
-              candidatures={dashboardData.applications || []} 
+              candidatures={applications} 
               loading={dashboardData.loading} 
             />
             {user?.role === 'entreprise' && (
               <div className="col-span-1">
                 <OpportunitiesWidget 
-                  offres={dashboardData.opportunities || []} 
+                  offres={opportunities} 
                   loading={dashboardData.loading} 
                 />
               </div>
@@ -102,6 +145,7 @@ const MinimalDashboard = () => {
             <NotificationsWidget 
               notifications={notifications.slice(0, 3)} 
               loading={dashboardData.loading} 
+              onMarkAsRead={handleMarkNotificationAsRead}
             />
             {user?.role === 'etudiant' && tests.length > 0 && (
               <div className="md:col-span-2">
@@ -114,7 +158,6 @@ const MinimalDashboard = () => {
           </Suspense>
         </div>
       ),
-      // Autres onglets similaires avec des fallbacks
       profile: (
         <Suspense fallback={<LoadingIndicator />}>
           <ProfileWidget 
@@ -126,23 +169,99 @@ const MinimalDashboard = () => {
       applications: (
         <Suspense fallback={<LoadingIndicator />}>
           <ApplicationsWidget 
-            candidatures={dashboardData.applications || []} 
+            candidatures={applications} 
             loading={dashboardData.loading} 
           />
         </Suspense>
       ),
-      // ... autres onglets avec des fallbacks similaires
+      notifications: (
+        <Suspense fallback={<LoadingIndicator />}>
+          <div className="space-y-6">
+            <h1 className="text-2xl font-bold text-gray-800">Notifications</h1>
+            <NotificationsWidget 
+              notifications={notifications} 
+              loading={dashboardData.loading}
+              onMarkAsRead={handleMarkNotificationAsRead}
+            />
+          </div>
+        </Suspense>
+      ),
+      entretiens: (
+        <Suspense fallback={<LoadingIndicator />}>
+          <div className="space-y-6">
+            <h1 className="text-2xl font-bold text-gray-800">Entretiens planifiés</h1>
+            <EntretienWidget 
+              entretiens={dashboardData.entretiens || []}
+              loading={dashboardData.loading}
+            />
+          </div>
+        </Suspense>
+      ),
+      settings: (
+        <Suspense fallback={<LoadingIndicator />}>
+          <div className="space-y-6">
+            <h1 className="text-2xl font-bold text-gray-800">Paramètres</h1>
+            <SettingsWidget 
+              userData={user}
+              loading={dashboardData.loading}
+            />
+          </div>
+        </Suspense>
+      ),
+      tests: (
+        <Suspense fallback={<LoadingIndicator />}>
+          <div className="space-y-6">
+            <h1 className="text-2xl font-bold text-gray-800">Tests de compétences</h1>
+            <TestsWidget 
+              tests={tests}
+              loading={dashboardData.loading}
+            />
+          </div>
+        </Suspense>
+      ),
+      offers: (
+        <Suspense fallback={<LoadingIndicator />}>
+          <div className="space-y-6">
+            <h1 className="text-2xl font-bold text-gray-800">Mes offres publiées</h1>
+            {/* Debugging pour voir les données disponibles */}
+            {opportunities.length === 0 && (
+              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+                <p className="text-yellow-700">Aucune offre n'est disponible. Vérifiez la console pour plus de détails.</p>
+              </div>
+            )}
+            <OpportunitiesWidget 
+              offres={opportunities} 
+              loading={dashboardData.loading}
+              error={dashboardData.error}
+            />
+          </div>
+        </Suspense>
+      ),
+      candidates: (
+        <Suspense fallback={<LoadingIndicator />}>
+          <div className="space-y-6">
+            <h1 className="text-2xl font-bold text-gray-800">Candidatures reçues</h1>
+            <CandidatesContainer 
+              candidatures={applications} 
+              loading={dashboardData.loading}
+            />
+          </div>
+        </Suspense>
+      ),
     };
 
+    // Retourne le contenu pour l'onglet actif ou un message par défaut
     return renderMap[activeTab] || (
       <div className="bg-white rounded-lg shadow-sm p-6 text-center">
         <p className="text-gray-600">Sélectionnez une option dans le menu</p>
+        <p className="text-gray-500 mt-2">Onglet actuel: {activeTab}</p>
       </div>
     );
   }, [
     activeTab, 
     user, 
-    dashboardData
+    dashboardData,
+    handleMarkNotificationAsRead
   ]);
 
   // Gestionnaire de recherche
@@ -150,6 +269,7 @@ const MinimalDashboard = () => {
     e.preventDefault();
     if (searchQuery.trim()) {
       // Logique de recherche
+      console.log("Recherche:", searchQuery);
     }
   }, [searchQuery]);
 

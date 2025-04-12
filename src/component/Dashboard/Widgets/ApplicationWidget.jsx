@@ -2,7 +2,10 @@ import React from 'react';
 import { Clock, ChevronRight, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-const ApplicationWidget = ({ candidatures = [], loading }) => {
+const ApplicationWidget = ({ candidatures, loading }) => {
+  // Sécuriser l'accès à slice en s'assurant que candidatures est un tableau
+  const safeCandidatures = Array.isArray(candidatures) ? candidatures : [];
+
   // Formater la date relative
   const formatRelativeTime = (dateString) => {
     if (!dateString) return "Date inconnue";
@@ -53,6 +56,7 @@ const ApplicationWidget = ({ candidatures = [], loading }) => {
     return translations[status] || status;
   };
 
+  // Affichage pendant le chargement
   if (loading) {
     return (
       <div className="bg-white rounded-lg shadow-sm p-6">
@@ -70,12 +74,12 @@ const ApplicationWidget = ({ candidatures = [], loading }) => {
     <div className="bg-white rounded-lg shadow-sm p-6">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-medium text-gray-800">Candidatures récentes</h2>
-        <Link to="/applications" className="text-teal-500 hover:text-teal-600 text-sm">
+        <Link to="/candidatures" className="text-teal-500 hover:text-teal-600 text-sm">
           Voir toutes
         </Link>
       </div>
       
-      {candidatures.length === 0 ? (
+      {safeCandidatures.length === 0 ? (
         <div className="text-center py-8">
           <AlertCircle size={32} className="mx-auto mb-2 text-gray-400" />
           <p className="text-gray-600 mb-2">Aucune candidature</p>
@@ -91,7 +95,7 @@ const ApplicationWidget = ({ candidatures = [], loading }) => {
         </div>
       ) : (
         <div className="space-y-3">
-          {candidatures.slice(0, 5).map((candidature) => (
+          {safeCandidatures.slice(0, 5).map((candidature) => (
             <Link 
               key={candidature.id} 
               to={`/candidatures/${candidature.id}`}
