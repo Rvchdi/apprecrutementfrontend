@@ -95,7 +95,11 @@ const CompetenceSelector = ({
         <div className="p-6 pb-0 flex justify-between items-center">
           <h2 className="text-xl font-semibold text-gray-800">Sélectionnez vos compétences</h2>
           <button 
-            onClick={onClose}
+           onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onClose();
+          }}
             className="text-gray-500 hover:text-gray-700"
           >
             <X size={24} />

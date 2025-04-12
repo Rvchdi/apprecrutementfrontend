@@ -168,24 +168,37 @@ const MultiStepRegistration = () => {
       setErrors({});
       
       try {
-        // Obtenir le cookie CSRF d'abord
-          
         // Préparer les données à envoyer
         const dataToSend = new FormData();
         
         // Ajouter toutes les données du formulaire
-        if (formData.competences) {
-          // Convertir les compétences sélectionnées en tableau d'identifiants
-          const competencesArray = selectedCompetences.map(comp => comp.id);
-          dataToSend.append('competences', JSON.stringify(competencesArray));
-      }
+        Object.keys(formData).forEach(key => {
+          // Ignorer les champs vides et le champ "competences" (géré séparément)
+          if (formData[key] !== '' && formData[key] !== null && key !== 'competences') {
+            dataToSend.append(key, formData[key]);
+          }
+        });
+        
+        // Gérer les compétences spécifiquement
+        if (selectedCompetences.length > 0) {
+          // Convertir les compétences sélectionnées en JSON
+          dataToSend.append('competences', JSON.stringify(selectedCompetences));
+        }
+        
+        // Ajouter le CV si présent
+        if (formData.cv_file) {
+          dataToSend.append('cv_file', formData.cv_file);
+        }
+        
+        // Debug: afficher les données qui seront envoyées
+        console.log('Sending form data:', Object.fromEntries(dataToSend));
         
         // Envoyer la requête au backend
-        const response = await axios.post('http://localhost:8000/api/auth/register', dataToSend, {
+        const response = await axios.post('/api/auth/register', dataToSend, {
           headers: {
             'Content-Type': 'multipart/form-data',
             'Accept': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest' // Important pour Sanctum
+            'X-Requested-With': 'XMLHttpRequest'
           },
           withCredentials: true
         });
@@ -198,16 +211,19 @@ const MultiStepRegistration = () => {
           window.location.href = '/login';
         }, 3000);
       } catch (error) {
+        console.error('Erreur d\'inscription:', error.response?.data || error);
+        
         // Afficher les erreurs de validation
         if (error.response && error.response.status === 422) {
-          console.log('Erreurs de validation:', error.response.data.errors);
-          setErrors(error.response.data.errors);
+          setErrors(error.response.data.errors || {});
         } else {
           setErrors({ general: 'Une erreur est survenue lors de l\'inscription.' });
         }
-      }}
+        
+        setIsSubmitting(false);
+      }
+    }
   };
-
   // Variants pour les animations
   const slideVariants = {
     enterRight: {
