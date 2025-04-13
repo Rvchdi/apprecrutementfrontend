@@ -32,6 +32,7 @@ import {
 import OffresList from './component/Dashboard/Interfaces/OffresList';
 import TestsList from './component/Dashboard/Tests/TestsList';
 import TestCreationForm from './component/Dashboard/Tests/TestCreationForm';
+import ProfileModification from './component/Dashboard/Interfaces/ProfileModification';
 
 function App() {
   return (
@@ -84,7 +85,11 @@ function App() {
                 <Dashboard />
               </MainLayout>
             } />
-
+            <Route path="/dashboard/profile/edit" element={
+              <MainLayout>
+                <ProfileModification />
+              </MainLayout>
+            } />
             <Route path="/notifications" element={
               <MainLayout>
                 <NotificationsCenter />

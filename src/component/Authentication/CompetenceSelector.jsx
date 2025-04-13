@@ -12,6 +12,7 @@ const CompetenceSelector = ({
   const [filteredCompetences, setFilteredCompetences] = useState([]);
   const [loading, setLoading] = useState(false);
   const [newCompetence, setNewCompetence] = useState('');
+  const [localSelectedCompetences, setLocalSelectedCompetences] = useState(selectedCompetences);
 
   // Charger les compétences disponibles
   useEffect(() => {
@@ -43,10 +44,10 @@ const CompetenceSelector = ({
     }
   }, [searchQuery, availableCompetences]);
 
-  // Ajouter une compétence
+  // Ajouter une compétence (géré localement maintenant)
   const handleAddCompetence = (competence) => {
-    if (!selectedCompetences.some(c => c.id === competence.id)) {
-      onCompetencesChange([...selectedCompetences, { 
+    if (!localSelectedCompetences.some(c => c.id === competence.id)) {
+      setLocalSelectedCompetences([...localSelectedCompetences, { 
         id: competence.id, 
         nom: competence.nom,
         niveau: 'débutant' // Niveau par défaut
@@ -54,9 +55,9 @@ const CompetenceSelector = ({
     }
   };
 
-  // Supprimer une compétence
+  // Supprimer une compétence (géré localement maintenant)
   const handleRemoveCompetence = (competenceId) => {
-    onCompetencesChange(selectedCompetences.filter(c => c.id !== competenceId));
+    setLocalSelectedCompetences(localSelectedCompetences.filter(c => c.id !== competenceId));
   };
 
   // Créer une nouvelle compétence
@@ -64,15 +65,18 @@ const CompetenceSelector = ({
     if (!newCompetence.trim()) return;
 
     try {
-      const response = await axios.post('/api/competences', { 
-        nom: newCompetence.trim(),
-        categorie: 'personnelle' // Catégorie par défaut pour les compétences ajoutées par l'utilisateur
-      });
-
-      const newCompetenceData = response.data.competence;
+      // Nous simulons la création en local pour éviter les appels API pendant l'inscription
+      // Créer un ID temporaire négatif pour assurer l'unicité
+      const tempId = -Date.now();
       
-      // Ajouter la nouvelle compétence aux compétences sélectionnées
-      onCompetencesChange([...selectedCompetences, { 
+      // Ajouter la nouvelle compétence aux compétences sélectionnées localement
+      const newCompetenceData = {
+        id: tempId,
+        nom: newCompetence.trim(),
+        categorie: 'personnelle'
+      };
+      
+      setLocalSelectedCompetences([...localSelectedCompetences, { 
         id: newCompetenceData.id, 
         nom: newCompetenceData.nom,
         niveau: 'débutant'
@@ -83,23 +87,31 @@ const CompetenceSelector = ({
       
       // Mettre à jour la liste des compétences disponibles
       setAvailableCompetences([...availableCompetences, newCompetenceData]);
+      
     } catch (error) {
       console.error('Erreur lors de la création de la compétence:', error);
     }
   };
+  
+  // Confirmer la sélection des compétences et fermer le modal
+  const handleConfirm = () => {
+    // On ne met à jour les compétences du parent qu'à la confirmation
+    onCompetencesChange(localSelectedCompetences);
+    onClose();
+  };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         {/* Titre et bouton de fermeture */}
         <div className="p-6 pb-0 flex justify-between items-center">
           <h2 className="text-xl font-semibold text-gray-800">Sélectionnez vos compétences</h2>
           <button 
-           onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onClose();
-          }}
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              onClose();
+            }}
             className="text-gray-500 hover:text-gray-700"
           >
             <X size={24} />
@@ -129,7 +141,11 @@ const CompetenceSelector = ({
               className="flex-1 mr-2 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
             />
             <button
-              onClick={handleCreateCompetence}
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                handleCreateCompetence();
+              }}
               className="bg-teal-500 text-white px-4 py-2 rounded-lg hover:bg-teal-600 transition-colors"
             >
               <Plus size={20} />
@@ -148,7 +164,7 @@ const CompetenceSelector = ({
                   <div 
                     key={competence.id} 
                     className={`flex justify-between items-center p-2 rounded-lg transition-colors ${
-                      selectedCompetences.some(c => c.id === competence.id) 
+                      localSelectedCompetences.some(c => c.id === competence.id) 
                         ? 'bg-teal-50 border border-teal-300' 
                         : 'hover:bg-gray-50 border border-transparent'
                     }`}
@@ -162,16 +178,24 @@ const CompetenceSelector = ({
                       )}
                     </div>
                     <div>
-                      {selectedCompetences.some(c => c.id === competence.id) ? (
+                      {localSelectedCompetences.some(c => c.id === competence.id) ? (
                         <button 
-                          onClick={() => handleRemoveCompetence(competence.id)}
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleRemoveCompetence(competence.id);
+                          }}
                           className="text-red-500 hover:text-red-700"
                         >
                           <X size={20} />
                         </button>
                       ) : (
                         <button 
-                          onClick={() => handleAddCompetence(competence)}
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleAddCompetence(competence);
+                          }}
                           className="text-teal-500 hover:text-teal-700"
                         >
                           <Plus size={20} />
@@ -188,18 +212,22 @@ const CompetenceSelector = ({
         {/* Compétences sélectionnées */}
         <div className="p-6 pt-0">
           <h3 className="text-sm font-medium text-gray-700 mb-2">Compétences sélectionnées</h3>
-          {selectedCompetences.length === 0 ? (
+          {localSelectedCompetences.length === 0 ? (
             <p className="text-gray-500 text-sm">Aucune compétence sélectionnée</p>
           ) : (
             <div className="flex flex-wrap gap-2">
-              {selectedCompetences.map(competence => (
+              {localSelectedCompetences.map(competence => (
                 <div 
                   key={competence.id} 
                   className="bg-teal-50 text-teal-700 rounded-full px-3 py-1 text-xs flex items-center"
                 >
                   {competence.nom}
                   <button 
-                    onClick={() => handleRemoveCompetence(competence.id)}
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleRemoveCompetence(competence.id);
+                    }}
                     className="ml-2 text-teal-500 hover:text-teal-700"
                   >
                     <X size={14} />
@@ -213,7 +241,11 @@ const CompetenceSelector = ({
         {/* Bouton de confirmation */}
         <div className="p-6 pt-0 flex justify-end">
           <button 
-            onClick={onClose}
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              handleConfirm();
+            }}
             className="bg-teal-500 text-white px-6 py-2 rounded-lg hover:bg-teal-600 transition-colors flex items-center"
           >
             <CheckCircle size={16} className="mr-2" />

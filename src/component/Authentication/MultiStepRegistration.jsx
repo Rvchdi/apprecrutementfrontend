@@ -83,7 +83,15 @@ const MultiStepRegistration = () => {
       role: accountType
     }));
   }, [accountType]);
-
+  const handleKeyDown = (e) => {
+    // Si l'utilisateur appuie sur Entrée et qu'il ne s'agit pas du bouton de soumission final
+    if (e.key === 'Enter' && 
+        !((currentStep === 2 && accountType === 'etudiant') || 
+        (currentStep === 1 && accountType === 'entreprise'))) {
+      e.preventDefault();
+      return false;
+    }
+  };
   // Fonction pour vérifier si les champs de l'étape actuelle sont remplis
   const isCurrentStepValid = () => {
     if (currentStep === 0) {
@@ -160,7 +168,10 @@ const MultiStepRegistration = () => {
       setCurrentStep(prev => prev - 1);
     }
   };
-
+  const handleCompetencesChange = (competences) => {
+    // Mettre à jour les compétences sélectionnées
+    setSelectedCompetences(competences);
+  };
   const handleSubmit = async (e) => {
     e.preventDefault();
     if ((currentStep === 2 || (currentStep === 1 && accountType === 'entreprise')) && isCurrentStepValid()) {
@@ -332,7 +343,7 @@ const MultiStepRegistration = () => {
       </div>
       
       {/* Corps du formulaire */}
-      <form onSubmit={handleSubmit} className="p-6">
+      <form onSubmit={handleSubmit} className="p-6" onKeyDown={handleKeyDown}>
         {/* Erreur générale */}
         {errors.general && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
@@ -948,11 +959,11 @@ const MultiStepRegistration = () => {
                   </button>
                   
                   {showCompetenceSelector && (
-                    <CompetenceSelector
-                      selectedCompetences={selectedCompetences}
-                      onCompetencesChange={setSelectedCompetences}
-                      onClose={() => setShowCompetenceSelector(false)}
-                    />
+                  <CompetenceSelector
+                    selectedCompetences={selectedCompetences}
+                    onCompetencesChange={handleCompetencesChange}  // Utilisez votre nouvelle fonction au lieu de setSelectedCompetences directement
+                    onClose={() => setShowCompetenceSelector(false)}
+                  />
                   )}
                 </div>
                 
