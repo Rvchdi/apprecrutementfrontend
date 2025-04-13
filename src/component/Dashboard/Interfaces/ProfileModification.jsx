@@ -346,9 +346,9 @@ const handleSubmit = async (e) => {
     const endpoint = isEtudiant ? '/api/etudiant/profile' : '/api/entreprise/profile';
     
     // Envoyer la requête
-    const response = await axios.post(endpoint, formDataToSend, {
+    const response = await axios.put(endpoint, formDataToSend, {
       headers: {
-        'Content-Type': 'multipart/form-data'
+        'Content-Type': 'application/json',
       }
     });
     

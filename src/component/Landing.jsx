@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Briefcase, ArrowRight, Users, CheckCircle, Book, Award, MapPin, FileText, Calendar } from 'lucide-react';
-import backgroundImage from '../assets/work.jpg';
+
 
 const Landing = () => {
   const [scrolled, setScrolled] = useState(false);

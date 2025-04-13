@@ -434,8 +434,7 @@ const TestsList = () => {
                       onChange={() => toggleFilter('duree', 'long')}
                       className="rounded text-teal-500 focus:ring-teal-500"
                     />
-                    <label htmlFor="duree-long" className="ml-2 text-sm text-gray-700">Long (> 60 min)</label>
-                  </div>
+                    <label htmlFor="duree-long" className="ml-2 text-sm text-gray-700">Long (&gt; 60 min)</label>                  </div>
                 </div>
               </div>
             </div>
@@ -520,8 +519,7 @@ const TestsList = () => {
                               onChange={() => toggleFilter('duree', 'long')}
                               className="rounded text-teal-500 focus:ring-teal-500"
                             />
-                            <label htmlFor="mobile-duree-long" className="ml-2 text-sm text-gray-700">Long (> 60 min)</label>
-                          </div>
+                            <label htmlFor="mobile-duree-long" className="ml-2 text-sm text-gray-700">Long (&gt; 60 min)</label>                          </div>
                         </div>
                       </div>
                     </div>

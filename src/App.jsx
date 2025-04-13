@@ -33,6 +33,7 @@ import OffresList from './component/Dashboard/Interfaces/OffresList';
 import TestsList from './component/Dashboard/Tests/TestsList';
 import TestCreationForm from './component/Dashboard/Tests/TestCreationForm';
 import ProfileModification from './component/Dashboard/Interfaces/ProfileModification';
+import AdminDashboard from './component/Dashboard/Admin/AdminDashboard';
 
 function App() {
   return (
@@ -79,7 +80,12 @@ function App() {
                 <Dashboard />
               </MainLayout>
             } />
-            
+            {/* Dashboard et composants associés */}
+            <Route path="/admin" element={
+              <MainLayout>
+                <AdminDashboard />
+              </MainLayout>
+            } />
             <Route path="/dashboard/:tab" element={
               <MainLayout>
                 <Dashboard />
