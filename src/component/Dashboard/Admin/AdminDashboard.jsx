@@ -25,9 +25,9 @@ import { useAuth } from '../../Authentication/AuthContext';
 // Composants
 import UserManagement from './Widgets/UserManagement';
 import CompetenceManagement from './Widgets/CompetenceManagement';
-import OfferManagement from './Widgets/OfferManagement';
+/* import OfferManagement from './Widgets/OfferManagement'; */
 import DashboardStats from './Widgets/DashboardStats';
-import Settings from './Widgets/Settings'; 
+/* import Settings from './Widgets/Settings';  */
 
 const AdminDashboard = () => {
   const { user, logout } = useAuth();
@@ -45,7 +45,7 @@ const AdminDashboard = () => {
 
   // Vérification que l'utilisateur est bien un administrateur
   useEffect(() => {
-    if (user && user.role !== 'entreprise') {
+    if (user && user.role !== 'admin') {
       navigate('/unauthorized');
     }
   }, [user]);
@@ -95,9 +95,9 @@ const AdminDashboard = () => {
       case 'competences':
         return <CompetenceManagement />;
       case 'offers':
-        return <OfferManagement />;
+        return 
       case 'settings':
-        return <Settings />;
+        return
       default:
         return <DashboardStats stats={stats} loading={loading} />;
     }
