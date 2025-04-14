@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { 
   UsersIcon, 
@@ -133,20 +134,22 @@ const DashboardStats = ({ stats, loading }) => {
 
       {/* Cartes statistiques */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {statCards.map((card, index) => (
-          <div key={index} className="bg-white rounded-lg shadow p-6 transition-all duration-200 hover:shadow-md">
+      {statCards.map((card, index) => (
+        <div key={index} className="bg-white rounded-lg shadow p-6 transition-all duration-200 hover:shadow-md">
             <div className="flex justify-between items-center">
-              <div>
+            <div>
                 <p className="text-gray-500 text-sm">{card.title}</p>
-                <p className="text-3xl font-bold text-gray-800 mt-1">{card.value.toLocaleString()}</p>
-              </div>
-              <div className={`p-3 rounded-full ${card.color}`}>
-                {card.icon}
-              </div>
+                <p className="text-3xl font-bold text-gray-800 mt-1">
+                {card.value !== undefined ? card.value.toLocaleString() : '-'}
+                </p>
             </div>
-          </div>
+            <div className={`p-3 rounded-full ${card.color}`}>
+                {card.icon}
+            </div>
+            </div>
+        </div>
         ))}
-      </div>
+            </div>
 
       {/* Graphiques */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

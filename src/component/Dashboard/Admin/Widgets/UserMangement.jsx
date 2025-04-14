@@ -43,8 +43,9 @@ const UserManagement = () => {
       try {
         setLoading(true);
         const response = await axios.get('/api/admin/users');
-        setUsers(response.data.users);
-        setFilteredUsers(response.data.users);
+        const fetchedUsers = response.data.users || [];
+        setUsers(fetchedUsers);
+        setFilteredUsers(fetchedUsers);
         setLoading(false);
       } catch (err) {
         console.error('Erreur lors du chargement des utilisateurs:', err);
@@ -52,12 +53,11 @@ const UserManagement = () => {
         setLoading(false);
       }
     };
-
-    fetchUsers();
   }, []);
 
   // Filtrage et tri des utilisateurs
   useEffect(() => {
+    if (!Array.isArray(users) || users.length === 0) return;
     let result = [...users];
     
     // Appliquer le filtre de recherche
@@ -158,7 +158,9 @@ const UserManagement = () => {
   // Pagination
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredUsers.slice(indexOfFirstItem, indexOfLastItem);
+  const currentItems = Array.isArray(filteredUsers) 
+  ? filteredUsers.slice(indexOfFirstItem, indexOfLastItem) 
+  : [];
   const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
 
   // Changer de page
@@ -423,19 +425,24 @@ const UserManagement = () => {
                   <span className="sr-only">Précédent</span>
                   <ChevronUpIcon className="h-5 w-5 transform rotate-90" />
                 </button>
-                {[...Array(totalPages)].map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => paginate(i + 1)}
-                    className={`relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium ${
-                      currentPage === i + 1 
-                        ? 'z-10 bg-teal-50 border-teal-500 text-teal-600' 
-                        : 'text-gray-500 hover:bg-gray-50'
-                    }`}
-                  >
-                    {i + 1}
-                  </button>
-                ))}
+                {totalPages > 0 && Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                // Déterminer les boutons de page à afficher autour de la page courante
+                  const pageNum = Math.min(
+                    Math.max(i + 1, currentPage - 2), 
+                    Math.max(totalPages - 4 + i, i + 1)
+                  );
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => paginate(pageNum)}
+                      className={`relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium ${
+                        currentPage === pageNum ? 'z-10 bg-teal-50 border-teal-500 text-teal-600' : 'text-gray-500 hover:bg-gray-50'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
                 <button
                   onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                   disabled={currentPage === totalPages}

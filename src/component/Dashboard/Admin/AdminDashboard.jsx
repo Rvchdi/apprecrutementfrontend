@@ -19,15 +19,16 @@ import {
   MenuIcon,
   XCircleIcon
 } from '@heroicons/react/outline';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../Authentication/AuthContext';
 
 // Composants
-import UserManagement from './Widgets/UserManagement';
+import UserManagement from './Widgets/UserMangement';
 import CompetenceManagement from './Widgets/CompetenceManagement';
-/* import OfferManagement from './Widgets/OfferManagement'; */
+import OfferManagement from './Widgets/OfferManagement';
 import DashboardStats from './Widgets/DashboardStats';
-/* import Settings from './Widgets/Settings';  */
+import Settings from './Widgets/Settings';
 
 const AdminDashboard = () => {
   const { user, logout } = useAuth();
@@ -55,7 +56,7 @@ const AdminDashboard = () => {
     const fetchStats = async () => {
       try {
         setLoading(true);
-        const response = await axios.get('/api/admin/stats');
+        const response = await axios.get('/api/admin/dashboard');
         setStats(response.data);
         setLoading(false);
       } catch (error) {
@@ -95,9 +96,9 @@ const AdminDashboard = () => {
       case 'competences':
         return <CompetenceManagement />;
       case 'offers':
-        return 
+        return <OfferManagement />;
       case 'settings':
-        return
+        return <Settings />;
       default:
         return <DashboardStats stats={stats} loading={loading} />;
     }
