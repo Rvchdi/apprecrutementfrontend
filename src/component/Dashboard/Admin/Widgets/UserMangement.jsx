@@ -43,7 +43,10 @@ const UserManagement = () => {
       try {
         setLoading(true);
         const response = await axios.get('/api/admin/users');
-        const fetchedUsers = response.data.users || [];
+        console.log('Réponse API:', response.data); // Debugging
+  
+        // Extraire les utilisateurs de la réponse
+        const fetchedUsers = response.data.users?.data || [];
         setUsers(fetchedUsers);
         setFilteredUsers(fetchedUsers);
         setLoading(false);
@@ -53,13 +56,15 @@ const UserManagement = () => {
         setLoading(false);
       }
     };
+  
+    fetchUsers(); // Appeler la fonction ici
   }, []);
 
   // Filtrage et tri des utilisateurs
   useEffect(() => {
-    if (!Array.isArray(users) || users.length === 0) return;
+    if (!Array.isArray(users) || users.length === 0) return console.log('Aucun utilisateur à filtrer ou trier.'); // Debugging  
     let result = [...users];
-    
+  
     // Appliquer le filtre de recherche
     if (searchQuery) {
       const lowerCaseQuery = searchQuery.toLowerCase();
@@ -70,27 +75,15 @@ const UserManagement = () => {
           user.email?.toLowerCase().includes(lowerCaseQuery)
       );
     }
-
+  
     // Appliquer le filtre de rôle
     if (filters.role !== 'all') {
       result = result.filter(user => user.role === filters.role);
     }
-
-    // Appliquer le tri
-    if (sortConfig.key) {
-      result.sort((a, b) => {
-        if (a[sortConfig.key] < b[sortConfig.key]) {
-          return sortConfig.direction === 'asc' ? -1 : 1;
-        }
-        if (a[sortConfig.key] > b[sortConfig.key]) {
-          return sortConfig.direction === 'asc' ? 1 : -1;
-        }
-        return 0;
-      });
-    }
-
+  
+    console.log('Utilisateurs après filtrage:', result); // Debugging
     setFilteredUsers(result);
-  }, [users, searchQuery, filters, sortConfig]);
+  }, [users, searchQuery, filters]);
 
   // Trier par colonne
   const requestSort = key => {
@@ -158,9 +151,10 @@ const UserManagement = () => {
   // Pagination
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = Array.isArray(filteredUsers) 
+  const currentItems = Array.isArray(filteredUsers) && filteredUsers.length > 0
   ? filteredUsers.slice(indexOfFirstItem, indexOfLastItem) 
   : [];
+  console.log('Utilisateurs affichés dans la table:', currentItems);
   const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
 
   // Changer de page

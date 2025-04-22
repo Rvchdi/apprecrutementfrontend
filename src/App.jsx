@@ -34,7 +34,6 @@ import TestsList from './component/Dashboard/Tests/TestsList';
 import TestCreationForm from './component/Dashboard/Tests/TestCreationForm';
 import ProfileModification from './component/Dashboard/Interfaces/ProfileModification';
 import AdminDashboard from './component/Dashboard/Admin/AdminDashboard';
-
 function App() {
   return (
     <AuthProvider>
@@ -42,7 +41,11 @@ function App() {
         <Routes>
           {/* Routes publiques */}
           <Route element={<PublicRoute />}>
-            <Route path="/" element={<Landing />} />
+          <Route path="/" element={
+            <GuestRoute>
+              <Landing />
+            </GuestRoute>
+          } />
             <Route path="/offres" element={
               <MainLayout>
                 <OffresList />
@@ -76,15 +79,15 @@ function App() {
           <Route element={<VerifiedRoute />}>
             {/* Dashboard et composants associés */}
             <Route path="/dashboard" element={
-              <MainLayout>
-                <Dashboard />
-              </MainLayout>
+              <RoleRoute roles={['etudiant', 'entreprise']}>
+                <MainLayout>
+                  <Dashboard />
+                </MainLayout>
+              </RoleRoute>
             } />
             {/* Dashboard et composants associés */}
             <Route path="/admin" element={
-              <MainLayout>
                 <AdminDashboard />
-              </MainLayout>
             } />
             <Route path="/dashboard/:tab" element={
               <MainLayout>

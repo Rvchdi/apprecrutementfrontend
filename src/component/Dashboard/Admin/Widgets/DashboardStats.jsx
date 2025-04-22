@@ -32,6 +32,14 @@ ChartJS.register(
 );
 
 const DashboardStats = ({ stats, loading }) => {
+  const totalUsers = stats.users?.total || 0;
+  const totalStudents = stats.users?.students || 0;
+  const totalCompanies = stats.users?.companies || 0;
+  const totalOffers = stats.offers?.total || 0;
+  const totalApplications = stats.applications?.total || 0;
+  const totalCompetences = stats.competences?.total || 0;
+  console.log('Total Users:', totalUsers); // Debugging
+  console.log('Stats Object:', stats); // Debugging
   // Configuration pour le graphique à barres
   const barOptions = {
     responsive: true,
@@ -51,7 +59,12 @@ const DashboardStats = ({ stats, loading }) => {
     datasets: [
       {
         label: 'Nombre total',
-        data: [stats.users, stats.offers, stats.applications, stats.competences],
+        data: [
+          stats.users?.total || 0, 
+          stats.offers?.total || 0, 
+          stats.applications?.total || 0, 
+          stats.competences?.total || 0
+        ],
         backgroundColor: ['rgba(54, 162, 235, 0.6)', 'rgba(255, 99, 132, 0.6)', 'rgba(75, 192, 192, 0.6)', 'rgba(255, 159, 64, 0.6)'],
       },
     ],
@@ -62,7 +75,11 @@ const DashboardStats = ({ stats, loading }) => {
     labels: ['Étudiants', 'Entreprises', 'Administrateurs'],
     datasets: [
       {
-        data: [stats.students, stats.companies, 1], // Supposons qu'il y a au moins 1 administrateur
+        data: [
+          stats.users?.students || 0, 
+          stats.users?.companies || 0, 
+          stats.users?.total - (stats.users?.students || 0) - (stats.users?.companies || 0) || 0
+        ],
         backgroundColor: ['rgba(54, 162, 235, 0.6)', 'rgba(255, 99, 132, 0.6)', 'rgba(75, 192, 192, 0.6)'],
         borderColor: ['rgba(54, 162, 235, 1)', 'rgba(255, 99, 132, 1)', 'rgba(75, 192, 192, 1)'],
         borderWidth: 1,
@@ -74,37 +91,37 @@ const DashboardStats = ({ stats, loading }) => {
   const statCards = [
     { 
       title: 'Utilisateurs', 
-      value: stats.users,
+      value: stats.users?.total || 0, // Accès correct
       icon: <UsersIcon className="w-8 h-8 text-blue-500" />,
       color: 'bg-blue-100'
     },
     { 
       title: 'Étudiants', 
-      value: stats.students, 
+      value: stats.users?.students || 0, // Accès correct
       icon: <UserGroupIcon className="w-8 h-8 text-green-500" />,
       color: 'bg-green-100'
     },
     { 
       title: 'Entreprises', 
-      value: stats.companies, 
+      value: stats.users?.companies || 0, // Accès correct
       icon: <OfficeBuildingIcon className="w-8 h-8 text-purple-500" />,
       color: 'bg-purple-100'
     },
     { 
       title: 'Offres', 
-      value: stats.offers, 
+      value: stats.offers?.total || 0, // Accès correct
       icon: <BriefcaseIcon className="w-8 h-8 text-red-500" />,
       color: 'bg-red-100'
     },
     { 
       title: 'Candidatures', 
-      value: stats.applications, 
+      value: stats.applications?.total || 0, // Accès correct
       icon: <DocumentTextIcon className="w-8 h-8 text-yellow-500" />,
       color: 'bg-yellow-100'
     },
     { 
       title: 'Compétences', 
-      value: stats.competences, 
+      value: stats.competences?.total || 0, // Accès correct
       icon: <TagIcon className="w-8 h-8 text-indigo-500" />,
       color: 'bg-indigo-100'
     },
@@ -173,29 +190,7 @@ const DashboardStats = ({ stats, loading }) => {
       <div className="bg-white rounded-lg shadow p-6">
         <h3 className="text-lg font-semibold text-gray-700 mb-4">Activité récente</h3>
         <div className="divide-y divide-gray-200">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="py-3 flex items-start">
-              <div className="flex-shrink-0 mr-3">
-                {i % 2 === 0 ? (
-                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                    <UsersIcon className="w-4 h-4 text-blue-500" />
-                  </div>
-                ) : (
-                  <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
-                    <BriefcaseIcon className="w-4 h-4 text-red-500" />
-                  </div>
-                )}
-              </div>
-              <div>
-                <p className="text-sm text-gray-800">
-                  {i % 2 === 0 
-                    ? 'Nouvel utilisateur inscrit : Jean Dupont' 
-                    : 'Nouvelle offre publiée : Développeur Frontend React'}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">Il y a {(i + 1) * 10} minutes</p>
-              </div>
-            </div>
-          ))}
+          
         </div>
       </div>
     </div>

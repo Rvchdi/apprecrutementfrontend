@@ -6,7 +6,10 @@ import { useAuth } from './AuthContext';
 const Unauthorized = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
-  
+
+  // Détermine la destination du tableau de bord en fonction du rôle
+  const dashboardPath = user?.role === 'admin' ? '/admin' : '/dashboard';
+
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-white shadow-xl rounded-2xl p-8 text-center">
@@ -37,7 +40,7 @@ const Unauthorized = () => {
           </button>
           
           <Link
-            to="/dashboard"
+            to={dashboardPath} // Redirige vers /admin si admin, sinon /dashboard
             className="w-full block bg-teal-600 text-white py-3 rounded-lg hover:bg-teal-700 transition-all duration-300"
           >
             {isAuthenticated ? "Aller au tableau de bord" : "Se connecter"}

@@ -56,8 +56,10 @@ const AdminDashboard = () => {
     const fetchStats = async () => {
       try {
         setLoading(true);
+        
         const response = await axios.get('/api/admin/dashboard');
         setStats(response.data);
+        console.log('Statistiques:', response.data);
         setLoading(false);
       } catch (error) {
         console.error('Erreur lors du chargement des statistiques:', error);
@@ -100,7 +102,7 @@ const AdminDashboard = () => {
       case 'settings':
         return <Settings />;
       default:
-        return <DashboardStats stats={stats} loading={loading} />;
+        return <DashboardStats stats={dashboardStats} loading={loading} />;
     }
   };
 

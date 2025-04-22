@@ -449,8 +449,8 @@ const Landing = () => {
             <div>
               <h3 className="text-white text-lg font-medium mb-4">Contact</h3>
               <ul className="space-y-2">
-                <li className="flex items-center"><MapPin className="h-4 w-4 mr-2" /> Paris, France</li>
-                <li><a href="mailto:contact@jobconnect.fr" className="hover:text-teal-400 transition-colors">contact@jobconnect.fr</a></li>
+                <li className="flex items-center"><MapPin className="h-4 w-4 mr-2" /> Rabat, Maroc</li>
+                <li><a href="mailto:contact@jobconnect.fr" className="hover:text-teal-400 transition-colors">contact@jobconnect.ma</a></li>
               </ul>
             </div>
           </div>

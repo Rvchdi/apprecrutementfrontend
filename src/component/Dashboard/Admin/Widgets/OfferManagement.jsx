@@ -39,8 +39,10 @@ const OfferManagement = () => {
       try {
         setLoading(true);
         const response = await axios.get('/api/admin/offres');
-        setOffers(response.data.offres);
-        setFilteredOffers(response.data.offres);
+        console.log('Réponse API:', response.data); // Vérifiez la structure des données
+        const offres = Array.isArray(response.data.offres) ? response.data.offres : [];
+        setOffers(offres);
+        setFilteredOffers(offres); // Initialisation de filteredOffers
         setLoading(false);
       } catch (err) {
         console.error('Erreur lors du chargement des offres:', err);
@@ -48,66 +50,30 @@ const OfferManagement = () => {
         setLoading(false);
       }
     };
-
+  
     fetchOffers();
   }, []);
 
   // Filtrage et tri des offres
   useEffect(() => {
-    let result = [...offers];
-    
-    // Appliquer le filtre de recherche
-    if (searchQuery) {
-      const lowerCaseQuery = searchQuery.toLowerCase();
-      result = result.filter(
-        offer =>
-          offer.titre?.toLowerCase().includes(lowerCaseQuery) ||
-          offer.description?.toLowerCase().includes(lowerCaseQuery) ||
-          offer.localisation?.toLowerCase().includes(lowerCaseQuery) ||
-          (offer.entreprise?.nom_entreprise && offer.entreprise.nom_entreprise.toLowerCase().includes(lowerCaseQuery))
-      );
-    }
-
-    // Appliquer le filtre de type
-    if (filters.type !== 'all') {
-      result = result.filter(offer => offer.type === filters.type);
-    }
-
-    // Appliquer le filtre de statut
-    if (filters.statut !== 'all') {
-      result = result.filter(offer => offer.statut === filters.statut);
-    }
-
-    // Appliquer le tri
-    if (sortConfig.key) {
-      result.sort((a, b) => {
-        // Gérer le tri pour les entreprises (propriété imbriquée)
-        if (sortConfig.key === 'entreprise') {
-          const aEntreprise = a.entreprise?.nom_entreprise?.toLowerCase() || '';
-          const bEntreprise = b.entreprise?.nom_entreprise?.toLowerCase() || '';
-          
-          if (aEntreprise < bEntreprise) {
-            return sortConfig.direction === 'asc' ? -1 : 1;
-          }
-          if (aEntreprise > bEntreprise) {
-            return sortConfig.direction === 'asc' ? 1 : -1;
-          }
-          return 0;
-        }
-        
-        // Tri standard pour les autres propriétés
-        if (a[sortConfig.key] < b[sortConfig.key]) {
-          return sortConfig.direction === 'asc' ? -1 : 1;
-        }
-        if (a[sortConfig.key] > b[sortConfig.key]) {
-          return sortConfig.direction === 'asc' ? 1 : -1;
-        }
-        return 0;
-      });
-    }
-
-    setFilteredOffers(result);
-  }, [offers, searchQuery, filters, sortConfig]);
+    const fetchOffers = async () => {
+      try {
+        setLoading(true);
+        const response = await axios.get('/api/admin/offres');
+        console.log('Réponse API:', response.data); // Vérifiez la structure des données
+        const offres = Array.isArray(response.data.offres?.data) ? response.data.offres.data : [];
+        setOffers(offres);
+        setFilteredOffers(offres); // Initialisation de filteredOffers
+        setLoading(false);
+      } catch (err) {
+        console.error('Erreur lors du chargement des offres:', err);
+        setError('Impossible de charger les offres. Veuillez réessayer plus tard.');
+        setLoading(false);
+      }
+    };
+  
+    fetchOffers();
+  }, []);
 
   // Trier par colonne
   const requestSort = key => {
@@ -146,11 +112,15 @@ const OfferManagement = () => {
       alert('Erreur lors de la suppression de l\'offre.');
     }
   };
-
+  console.log('filteredOffers:', filteredOffers);
   // Pagination
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredOffers.slice(indexOfFirstItem, indexOfLastItem);
+  console.log('indexOfFirstItem:', indexOfFirstItem, 'indexOfLastItem:', indexOfLastItem);
+  const currentItems = Array.isArray(filteredOffers)
+    ? filteredOffers.slice(indexOfFirstItem, indexOfLastItem)
+    : [];
+  console.log('currentItems:', currentItems);
   const totalPages = Math.ceil(filteredOffers.length / itemsPerPage);
 
   // Changer de page
