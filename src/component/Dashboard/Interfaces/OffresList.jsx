@@ -586,7 +586,7 @@ const OffresList = () => {
                           {offre.remuneration && (
                             <div className="flex items-center text-gray-600">
                               <Tag size={16} className="mr-1" />
-                              {offre.remuneration} € {offre.type === 'stage' || offre.type === 'alternance' ? '/mois' : '/an'}
+                              {offre.remuneration} MAD {offre.type === 'stage' || offre.type === 'alternance' ? '/mois' : '/an'}
                             </div>
                           )}
                           

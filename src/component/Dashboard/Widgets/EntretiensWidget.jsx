@@ -1,30 +1,34 @@
-import React from 'react';
-import { Calendar, MapPin, Video, Clock, User, Building, AlertCircle, CheckCircle } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Calendar, MapPin, Video, Clock, User, AlertCircle, CheckCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import axios from 'axios';
 
-const EntretiensWidget = ({ entretiens = [], loading }) => {
+const EntretiensWidget = () => {
+  const [entretiens, setEntretiens] = useState([]);
+  const [loading, setLoading] = useState(true);
+
   // Formater la date et l'heure
   const formatDateTime = (dateString) => {
     if (!dateString) return "Date non spécifiée";
-    
+
     const date = new Date(dateString);
-    
+
     // Formater la date
     const dateFormatted = date.toLocaleDateString('fr-FR', {
       day: 'numeric',
       month: 'long',
       year: 'numeric'
     });
-    
+
     // Formater l'heure
     const timeFormatted = date.toLocaleTimeString('fr-FR', {
       hour: '2-digit',
       minute: '2-digit'
     });
-    
+
     return `${dateFormatted} à ${timeFormatted}`;
   };
-  
+
   // Déterminer si un entretien est à venir (dans le futur)
   const isUpcoming = (dateString) => {
     if (!dateString) return false;
@@ -32,42 +36,61 @@ const EntretiensWidget = ({ entretiens = [], loading }) => {
     const entretienDate = new Date(dateString);
     return entretienDate > now;
   };
-  
+
   // Déterminer si un entretien est aujourd'hui
   const isToday = (dateString) => {
     if (!dateString) return false;
-    
+
     const now = new Date();
     const entretienDate = new Date(dateString);
-    
+
     return entretienDate.getDate() === now.getDate() &&
            entretienDate.getMonth() === now.getMonth() &&
            entretienDate.getFullYear() === now.getFullYear();
   };
-  
+
   // Déterminer si un entretien est imminent (dans les 24h)
   const isImminent = (dateString) => {
     if (!dateString) return false;
-    
+
     const now = new Date();
     const entretienDate = new Date(dateString);
     const diffTime = entretienDate - now;
     const diffHours = diffTime / (1000 * 60 * 60);
-    
+
     return diffHours > 0 && diffHours <= 24;
   };
-  
+
   // Obtenir les jours restants avant l'entretien
   const getRemainingDays = (dateString) => {
     if (!dateString) return 0;
-    
+
     const now = new Date();
     const entretienDate = new Date(dateString);
     const diffTime = entretienDate - now;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
+
     return diffDays;
   };
+
+  // Récupérer les entretiens depuis l'API
+  useEffect(() => {
+  
+    const fetchEntretiens = async () => {
+      console.log('Token:', localStorage.getItem('token'));
+      try {
+        const response = await axios.get('/api/entretiens/', {
+        });
+        setEntretiens(response.data.entretiens);
+      } catch (error) {
+        console.error('Erreur lors de la récupération des entretiens:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEntretiens();
+  }, []);
 
   if (loading) {
     return (
@@ -92,7 +115,7 @@ const EntretiensWidget = ({ entretiens = [], loading }) => {
           Voir tous
         </Link>
       </div>
-      
+
       {entretiens.length === 0 ? (
         <div className="text-center py-8">
           <AlertCircle size={32} className="mx-auto mb-2 text-gray-400" />
@@ -125,10 +148,10 @@ const EntretiensWidget = ({ entretiens = [], loading }) => {
                       {entretien.offre?.titre || "Entretien"}
                     </h3>
                     <p className="text-sm text-gray-500">
-                      {entretien.entreprise?.nom_entreprise || entretien.etudiant?.user?.nom}
+                      {entretien.offre?.entreprise?.nom_entreprise || "Entreprise non spécifiée"}
                     </p>
                   </div>
-                  
+
                   {isToday(entretien.date_entretien) ? (
                     <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
                       Aujourd'hui
@@ -143,13 +166,13 @@ const EntretiensWidget = ({ entretiens = [], loading }) => {
                     </span>
                   )}
                 </div>
-                
+
                 <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2">
                   <div className="flex items-center text-sm text-gray-600">
                     <Clock size={14} className="mr-2 text-gray-500" />
                     {formatDateTime(entretien.date_entretien)}
                   </div>
-                  
+
                   <div className="flex items-center text-sm text-gray-600">
                     {entretien.type_entretien === 'présentiel' ? (
                       <>
@@ -164,7 +187,7 @@ const EntretiensWidget = ({ entretiens = [], loading }) => {
                     )}
                   </div>
                 </div>
-                
+
                 {entretien.presence_confirmee ? (
                   <div className="mt-2 flex items-center text-xs text-green-600">
                     <CheckCircle size={12} className="mr-1" />

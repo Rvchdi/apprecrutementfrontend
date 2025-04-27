@@ -41,32 +41,40 @@ const JobDetail = () => {
   const [errorMessage, setErrorMessage] = useState('');
   
   // Récupérer les détails de l'offre
-  useEffect(() => {
-    const fetchOffreDetails = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        const response = await axios.get(`/api/offres/${id}`);
-        
-        setOffre(response.data.offre);
-        setEntreprise(response.data.entreprise);
-        setSimilarOffres(response.data.similar_offres || []);
-        
-        if (response.data.candidature_status) {
-          setCandidatureStatus(response.data.candidature_status);
-        }
-        
+  // Récupérer les détails de l'offre
+useEffect(() => {
+  const fetchOffreDetails = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Vérification que l'ID est valide
+      if (!id || isNaN(parseInt(id))) {
+        setError('Identifiant d\'offre invalide.');
         setLoading(false);
-      } catch (err) {
-        console.error('Erreur lors du chargement des détails de l\'offre:', err);
-        setError('Une erreur est survenue lors du chargement des détails de l\'offre. Veuillez réessayer.');
-        setLoading(false);
+        return;
       }
-    };
-    
-    fetchOffreDetails();
-  }, [id]);
+      
+      const response = await axios.get(`/api/offres/${id}`);
+      
+      setOffre(response.data.offre);
+      setEntreprise(response.data.entreprise);
+      setSimilarOffres(response.data.similar_offres || []);
+      
+      if (response.data.candidature_status) {
+        setCandidatureStatus(response.data.candidature_status);
+      }
+      
+      setLoading(false);
+    } catch (err) {
+      console.error('Erreur lors du chargement des détails de l\'offre:', err);
+      setError('Une erreur est survenue lors du chargement des détails de l\'offre. Veuillez réessayer.');
+      setLoading(false);
+    }
+  };
+  
+  fetchOffreDetails();
+}, [id]);
   
   // Formater la date
   const formatDate = (dateString) => {
@@ -155,49 +163,69 @@ const JobDetail = () => {
   };
   
   // Soumettre une candidature
-  const handleSubmitCandidature = async (e) => {
-    e.preventDefault();
+  // Soumettre une candidature
+const handleSubmitCandidature = async (e) => {
+  e.preventDefault();
+  
+  // Vérification que l'ID est valide
+  if (!id || isNaN(parseInt(id))) {
+    setErrorMessage('Identifiant d\'offre invalide.');
+    return;
+  }
+  
+  if (lettreMotivation.trim().length < 100) {
+    setErrorMessage('Veuillez rédiger une lettre de motivation d\'au moins 100 caractères.');
+    return;
+  }
+  
+  try {
+    setSubmitting(true);
+    setErrorMessage('');
     
-    if (lettreMotivation.trim().length < 100) {
-      setErrorMessage('Veuillez rédiger une lettre de motivation d\'au moins 100 caractères.');
-      return;
-    }
+    // Convertir explicitement l'ID en nombre
+    const offreId = parseInt(id);
     
-    try {
-      setSubmitting(true);
-      setErrorMessage('');
+    const response = await axios.post(`/api/offres/${offreId}/postuler`, {
+      lettre_motivation: lettreMotivation
+    });
+    
+    setSuccessMessage('Votre candidature a été envoyée avec succès !');
+    setCandidatureStatus({
+      status: 'en_attente',
+      date_candidature: new Date().toISOString()
+    });
+    
+    // Fermer la modal après quelques secondes
+    setTimeout(() => {
+      setShowModal(false);
       
-      const response = await axios.post(`/api/offres/${id}/postuler`, {
-        lettre_motivation: lettreMotivation
-      });
-      
-      setSuccessMessage('Votre candidature a été envoyée avec succès !');
-      setCandidatureStatus({
-        status: 'en_attente',
-        date_candidature: new Date().toISOString()
-      });
-      
-      // Fermer la modal après quelques secondes
-      setTimeout(() => {
-        setShowModal(false);
-        
-        // Rediriger vers la page de candidature si un test est requis
-        if (response.data.test_required) {
-          navigate(`/candidatures/${response.data.candidature.id}`);
-        }
-      }, 2000);
-    } catch (err) {
-      console.error('Erreur lors de l\'envoi de la candidature:', err);
-      
-      if (err.response?.data?.code === 'CV_REQUIRED') {
-        setErrorMessage('Vous devez télécharger votre CV avant de postuler. Veuillez compléter votre profil.');
+      // Rediriger vers la page de candidature si un test est requis
+      if (response.data.test_required && response.data.test_id) {
+        // On utilise directement response.data.test_id et response.data.candidature.id
+        setTimeout(() => {
+          setShowModal(false);
+          // Rediriger vers la page de test
+          navigate(`/tests/${response.data.test_id}/candidatures/${response.data.candidature.id}`);
+        }, 2000);
       } else {
-        setErrorMessage(err.response?.data?.message || 'Une erreur est survenue lors de l\'envoi de votre candidature.');
+        // Aucun test requis, simplement fermer la modal
+        setTimeout(() => {
+          setShowModal(false);
+        }, 2000);
       }
-    } finally {
-      setSubmitting(false);
+    }, 2000);
+  } catch (err) {
+    console.error('Erreur lors de l\'envoi de la candidature:', err);
+    
+    if (err.response?.data?.code === 'CV_REQUIRED') {
+      setErrorMessage('Vous devez télécharger votre CV avant de postuler. Veuillez compléter votre profil.');
+    } else {
+      setErrorMessage(err.response?.data?.message || 'Une erreur est survenue lors de l\'envoi de votre candidature.');
     }
-  };
+  } finally {
+    setSubmitting(false);
+  }
+};
   
   // Déterminer si l'utilisateur peut postuler
   const canApply = () => {
@@ -381,7 +409,7 @@ const JobDetail = () => {
                             <span>Test à compléter</span>
                           </div>
                           <Link 
-                            to={`/tests/${offre.test?.id}/candidatures/${candidatureStatus.candidature_id}`}
+                            to={`/tests/${offre.test?.id}/candidatures/`}
                             className="px-3 py-1 bg-amber-500 text-white rounded hover:bg-amber-600 text-sm"
                           >
                             Passer le test
@@ -446,7 +474,7 @@ const JobDetail = () => {
                   {offre.remuneration && (
                     <li className="flex justify-between">
                       <span className="text-gray-600">Rémunération</span>
-                      <span className="font-medium">{offre.remuneration} €{offre.type === 'emploi' ? '/an' : '/mois'}</span>
+                      <span className="font-medium">{offre.remuneration} MAD {offre.type === 'emploi' ? '/an' : '/mois'}</span>
                     </li>
                   )}
                   <li className="flex justify-between">

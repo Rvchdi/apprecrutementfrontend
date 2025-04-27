@@ -569,7 +569,7 @@ const CreateOffreForm = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
                   />
                   <div className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400">
-                    €{formData.type === 'emploi' ? '/an' : '/mois'}
+                    MAD{formData.type === 'emploi' ? '/an' : '/mois'}
                   </div>
                 </div>
               </div>

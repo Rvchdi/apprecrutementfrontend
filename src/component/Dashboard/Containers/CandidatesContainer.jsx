@@ -336,8 +336,27 @@ const CandidatesContainer = () => {
   };
   
   // Gérer le téléchargement du CV
-  const handleDownloadCV = (cvUrl) => {
-    window.open(cvUrl, '_blank');
+  const handleDownloadCV = async (cvUrl) => {
+    try {
+      const response = await axios.get(cvUrl, {
+        responseType: 'blob', // Pour gérer les fichiers binaires
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('auth_token')}`, // Ajoutez le token d'authentification
+        },
+      });
+  
+      // Créer un lien pour télécharger le fichier
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'cv.pdf'); // Nom du fichier téléchargé
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      console.error('Erreur lors du téléchargement du CV:', error);
+      alert('Impossible de télécharger le CV.');
+    }
   };
   
   // Envoyer un message à un candidat
@@ -745,17 +764,17 @@ const CandidatesContainer = () => {
                                 <MessageSquare size={18} />
                               </button>
                               {candidature.etudiant?.cv_file && (
-                                <button 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDownloadCV(`/storage/${candidature.etudiant.cv_file}`);
-                                  }}
-                                  className="text-teal-600 hover:text-teal-900"
-                                  title="Télécharger le CV"
-                                >
-                                  <Download size={18} />
-                                </button>
-                              )}
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation(); // Empêche la propagation de l'événement si le bouton est dans une liste cliquable
+                                  handleDownloadCV(`/api/user/cv/${candidature.etudiant.cv_file}`); // URL du CV
+                                }}
+                                className="text-teal-600 hover:text-teal-900"
+                                title="Télécharger le CV"
+                              >
+                                <Download size={18} />
+                              </button>
+                            )}
                             </div>
                           </td>
                         </tr>
