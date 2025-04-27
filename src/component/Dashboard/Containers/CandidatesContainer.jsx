@@ -22,7 +22,7 @@ import {
   ArrowUpDown,
   ChevronDown,
   ChevronUp,
-  X
+  X,
 } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../../Authentication/AuthContext';
@@ -32,6 +32,12 @@ const CandidatesContainer = () => {
   const { user } = useAuth();
   
   // États
+  const [activeTab, setActiveTab] = useState('all');  // Pour les onglets de catégories
+  const [competenceFilter, setCompetenceFilter] = useState('');  // Pour le filtre textuel
+  const [showResumeModal, setShowResumeModal] = useState(false);
+  const [cvResume, setCvResume] = useState(null);
+  const [loadingResume, setLoadingResume] = useState(false);
+  const [downloadingCV, setDownloadingCV] = useState(null);
   const [candidatures, setCandidatures] = useState([]);
   const [filteredCandidatures, setFilteredCandidatures] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -63,7 +69,25 @@ const CandidatesContainer = () => {
   const filterMenuRef = useRef(null);
   
   const itemsPerPage = 10;
-  
+  const handleViewCvResume = async (candidatureId) => {
+    try {
+      setLoadingResume(true);
+      
+      const response = await axios.get(`/api/entreprise/candidatures/${candidatureId}/cv-resume`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('auth_token')}`
+        }
+      });
+      
+      setCvResume(response.data);
+      setShowResumeModal(true);
+    } catch (error) {
+      console.error('Erreur lors du chargement du résumé du CV:', error);
+      alert('Impossible de charger le résumé du CV.');
+    } finally {
+      setLoadingResume(false);
+    }
+  };
   // Charger les candidatures
   useEffect(() => {
     const fetchCandidatures = async () => {
@@ -336,36 +360,38 @@ const CandidatesContainer = () => {
   };
   
   // Gérer le téléchargement du CV
-  const handleDownloadCV = async (cvUrl) => {
+  const handleDownloadCV = async (cvFile, candidatureId) => {
     try {
-      const response = await axios.get(cvUrl, {
-        responseType: 'blob', // Pour gérer les fichiers binaires
+      setDownloadingCV(candidatureId);
+      
+      // Extrayez le nom du fichier de cv_file
+      const filename = cvFile.split('/').pop();
+      console.log("Téléchargement du CV:", filename);
+      
+      // Accédez à l'URL correcte
+      const response = await axios.get(`/api/entreprise/cv/${filename}`, {
+        responseType: 'blob',
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('auth_token')}`, // Ajoutez le token d'authentification
+          Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
         },
       });
-  
-      // Créer un lien pour télécharger le fichier
+    
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', 'cv.pdf'); // Nom du fichier téléchargé
+      link.setAttribute('download', `cv_${filename}`);
       document.body.appendChild(link);
       link.click();
       link.remove();
     } catch (error) {
       console.error('Erreur lors du téléchargement du CV:', error);
+      if (error.response) {
+        console.error('Statut:', error.response.status);
+        console.error('Données:', error.response.data);
+      }
       alert('Impossible de télécharger le CV.');
-    }
-  };
-  
-  // Envoyer un message à un candidat
-  const handleSendMessage = async (candidatureId) => {
-    try {
-      navigate(`/messages/candidature/${candidatureId}`);
-    } catch (error) {
-      console.error('Erreur lors de la redirection vers la messagerie:', error);
-      alert('Une erreur est survenue. Veuillez réessayer.');
+    } finally {
+      setDownloadingCV(null);
     }
   };
   
@@ -756,25 +782,36 @@ const CandidatesContainer = () => {
                               <button 
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleSendMessage(candidature.id);
+                                  handleViewCvResume(candidature.id);
                                 }}
-                                className="text-blue-600 hover:text-blue-900"
-                                title="Envoyer un message"
+                                className="text-blue-600 hover:text-purple-900"
+                                title="Voir le résumé du CV"
+                                disabled={loadingResume}
                               >
-                                <MessageSquare size={18} />
+                                {loadingResume ? (
+                                  <div className="w-4 h-4 border-2 border-t-transparent border-purple-600 rounded-full animate-spin"></div>
+                                ) : (
+                                  <FileText size={18} /> // Icône de résumé/document
+                                )}
                               </button>
                               {candidature.etudiant?.cv_file && (
-                              <button 
-                                onClick={(e) => {
-                                  e.stopPropagation(); // Empêche la propagation de l'événement si le bouton est dans une liste cliquable
-                                  handleDownloadCV(`/api/user/cv/${candidature.etudiant.cv_file}`); // URL du CV
-                                }}
-                                className="text-teal-600 hover:text-teal-900"
-                                title="Télécharger le CV"
-                              >
-                                <Download size={18} />
-                              </button>
-                            )}
+                                <button 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    // Utilisez la valeur exacte du CV stockée en base de données
+                                    handleDownloadCV(candidature.etudiant.cv_file, candidature.id);
+                                  }}
+                                  className="text-teal-600 hover:text-teal-900"
+                                  title="Télécharger le CV"
+                                  disabled={downloadingCV === candidature.id}
+                                >
+                                  {downloadingCV === candidature.id ? (
+                                    <div className="w-4 h-4 border-2 border-t-transparent border-teal-600 rounded-full animate-spin"></div>
+                                  ) : (
+                                    <Download size={18} />
+                                  )}
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -1193,31 +1230,67 @@ const CandidatesContainer = () => {
             </div>
           </div>
         </div>
+        
       )}
+     
+     {showResumeModal && (
+  <div className="fixed inset-0 z-50 overflow-y-auto">
+    <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+      {/* Overlay sombre */}
+      <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+        <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+      </div>
+
+      <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+      {/* Modal */}
+      <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+        {/* En-tête avec bouton de fermeture */}
+        <div className="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+          <h3 className="text-lg font-medium text-gray-900">Résumé du CV</h3>
+          <button
+            onClick={() => setShowResumeModal(false)}
+            className="bg-white rounded-md text-gray-400 hover:text-gray-500 focus:outline-none"
+          >
+            <span className="sr-only">Fermer</span>
+            <X size={24} aria-hidden="true" />
+          </button>
+        </div>
+
+        {/* Contenu du modal */}
+        <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+          {cvResume ? (
+            <div>
+              <h4 className="font-semibold text-gray-700 mb-2">Résumé</h4>
+              <div className="bg-gray-50 p-3 rounded-lg text-sm text-gray-700 whitespace-pre-line">
+                {cvResume.resume}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-4">
+              <p className="text-gray-500">Aucun résumé disponible pour ce CV.</p>
+            </div>
+          )}
+        </div>
+
+        {/* Pied du modal */}
+        <div className="bg-gray-50 px-4 py-3 sm:px-6 flex justify-end">
+          <button
+            type="button"
+            className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition-colors"
+            onClick={() => setShowResumeModal(false)}
+          >
+            Fermer
+          </button>
+        </div>
+      </div>
     </div>
+  </div>
+)}
+    </div>
+    
   );
 };
 
 export default CandidatesContainer;
 
-/*
-POUR INTÉGRER CE COMPOSANT DANS VOTRE APPLICATION:
-
-1. Importez ce composant dans votre fichier App.jsx:
-   import CandidatesContainer from "./component/Dashboard/CandidatesContainer";
-
-2. Ajoutez la route suivante dans la section des routes protégées dans App.jsx:
-   <Route path="/candidates" element={
-     <MainLayout>
-       <CandidatesContainer />
-     </MainLayout>
-   } />
-   
-3. Vous devrez également ajouter un lien vers cette page dans la barre latérale 
-   ou la navigation pour que les entreprises puissent y accéder.
-
-4. Sur votre API, assurez-vous que l'endpoint suivant existe et est protégé:
-   - GET /api/entreprise/candidatures (récupère toutes les candidatures pour les offres de l'entreprise)
-   - PATCH ou PUT /api/entreprise/candidatures/{id}/status (met à jour le statut d'une candidature)
-   - POST /api/candidatures/{id}/entretien (planifie un entretien)
-*/
