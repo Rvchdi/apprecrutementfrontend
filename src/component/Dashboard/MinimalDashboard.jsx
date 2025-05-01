@@ -1,17 +1,19 @@
-import React, { 
-  useState, 
-  useEffect, 
-  useCallback, 
-  useMemo, 
-  Suspense, 
-  lazy 
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  Suspense,
+  lazy
 } from 'react';
+import axios from 'axios'; // Keep axios for notification update example
 
-// Hooks personnalisés
-import { useDashboardData } from './../../cache/userDashboardData';
-import { useAuth } from '../Authentication/AuthContext';
+// Hooks
+import { useDashboardData } from './../../cache/userDashboardData'; // Adjust path if needed
+import { useAuth } from '../Authentication/AuthContext'; // Adjust path if needed
 
-// Lazy loading des composants
+// --- Lazy Loading Components ---
+// (Assuming these components exist and are styled appropriately or accept style props)
 const ProfileWidget = lazy(() => import('./Widgets/ProfileWidget'));
 const ApplicationsWidget = lazy(() => import('./Widgets/ApplicationWidget'));
 const OpportunitiesWidget = lazy(() => import('./Widgets/OpportunitiesWidget'));
@@ -23,296 +25,239 @@ const CandidatesContainer = lazy(() => import('./Containers/CandidatesContainer'
 const DashboardSidebar = lazy(() => import('./DashboardSidebar'));
 const DashboardHeader = lazy(() => import('./DashboardHeader'));
 
-// Composant de chargement
-const LoadingIndicator = () => (
-  <div className="flex justify-center items-center h-64">
-    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-teal-500"></div>
+// --- Loading Indicator Component ---
+const LoadingIndicator = ({ message = "Chargement..." }) => (
+  <div className="flex flex-col justify-center items-center h-full py-16 text-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-teal-500 mb-4"></div>
+      <p className="text-gray-600 font-medium">{message}</p>
   </div>
 );
 
-// Composant principal du dashboard
+// --- Error Display Component ---
+const ErrorDisplay = ({ error }) => (
+   <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md shadow-sm my-4" role="alert">
+      <p className="font-bold">Une erreur est survenue</p>
+      <p>{typeof error === 'string' ? error : 'Impossible de charger les données.'}</p>
+   </div>
+);
+
+// --- Main Dashboard Component ---
 const MinimalDashboard = () => {
-  // Gestionnaire d'onglets avec mémorisation
   const [activeTab, setActiveTab] = useState('overview');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Contexte d'authentification
   const { user, logout } = useAuth();
+  const dashboardData = useDashboardData(user); // Fetch data using custom hook
 
-  // Récupération des données du dashboard
-  const dashboardData = useDashboardData(user);
-  
-  // Log pour débogage
+  // Debug logs (optional)
   useEffect(() => {
-    console.log("Dashboard Data:", dashboardData);
-    console.log("Active Tab:", activeTab);
+      console.log("Dashboard Data Status:", { loading: dashboardData.loading, error: dashboardData.error, hasData: !!dashboardData });
+      console.log("Active Tab:", activeTab);
   }, [dashboardData, activeTab]);
 
-  // Gestionnaire de déconnexion
+  // Logout handler
   const handleLogout = useCallback(async () => {
-    try {
-      await logout();
-    } catch (err) {
-      console.error('Erreur lors de la déconnexion:', err);
-    }
+      try {
+          await logout();
+          // Navigate to login or home page is usually handled within AuthContext or App router
+      } catch (err) {
+          console.error('Logout failed:', err);
+          // Display error notification to user if needed
+      }
   }, [logout]);
 
-  // Gestionnaire pour marquer une notification comme lue
+  // Notification read handler
   const handleMarkNotificationAsRead = useCallback(async (id) => {
-    try {
-      await axios.patch(`/api/notifications/${id}/read`);
-      // Mettre à jour l'état localement
-      if (dashboardData.notifications) {
-        const updatedNotifications = dashboardData.notifications.map(notif => 
+      // Optimistic UI update (example - adapt based on useDashboardData implementation)
+      const originalNotifications = dashboardData.notifications ? [...dashboardData.notifications] : [];
+      const updatedNotifications = originalNotifications.map(notif =>
           notif.id === id ? { ...notif, lu: true } : notif
-        );
-        
-        dashboardData.notifications = updatedNotifications;
-      }
-    } catch (error) {
-      console.error('Erreur lors du marquage de la notification:', error);
-    }
-  }, [dashboardData]);
-
-  // Rendu du contenu du dashboard
-  const renderContent = useMemo(() => {
-    // Gestion des états de chargement et d'erreur
-    if (dashboardData.loading) {
-      return <LoadingIndicator />;
-    }
-
-    if (dashboardData.error) {
-      return (
-        <div className="bg-red-50 border-l-4 border-red-500 p-4">
-          <p className="text-red-700">{dashboardData.error}</p>
-        </div>
       );
-    }
+       // TODO: Replace this direct mutation if useDashboardData provides a setter
+       // This might cause issues if dashboardData is meant to be immutable.
+       // Ideally, useDashboardData should expose a way to update its state,
+       // e.g., refetch or provide a setData function.
+       if (dashboardData.setData) {
+           dashboardData.setData(prev => ({ ...prev, notifications: updatedNotifications }));
+       } else {
+           console.warn("Direct mutation of dashboardData.notifications. Consider using a state setter.");
+           dashboardData.notifications = updatedNotifications; // Less ideal fallback
+       }
 
-    // Mapper les notifications avec un fallback
-    const notifications = Array.isArray(dashboardData.notifications) 
-      ? dashboardData.notifications 
-      : [];
 
-    // Mapper les tests avec un fallback
-    const tests = Array.isArray(dashboardData.tests) 
-      ? dashboardData.tests 
-      : [];
-      
-    // Mapper les opportunités (offres) avec un fallback
-    const opportunities = Array.isArray(dashboardData.opportunities)
-      ? dashboardData.opportunities
-      : [];
-      
-    // Mapper les candidatures avec un fallback
-    const applications = Array.isArray(dashboardData.applications)
-      ? dashboardData.applications
-      : [];
+      try {
+          await axios.patch(`/api/notifications/${id}/read`);
+          // Optional: Refetch notifications or rely on optimistic update
+           if (dashboardData.refetch) dashboardData.refetch('notifications');
 
-    // Log pour débogage des données disponibles
-    console.log("Content rendering with:", {
-      notificationsCount: notifications.length,
-      testsCount: tests.length,
-      opportunitiesCount: opportunities.length,
-      applicationsCount: applications.length,
-      activeTab
-    });
+      } catch (error) {
+          console.error('Failed to mark notification as read:', error);
+          // Revert optimistic update on error
+           if (dashboardData.setData) {
+               dashboardData.setData(prev => ({ ...prev, notifications: originalNotifications }));
+           } else {
+               dashboardData.notifications = originalNotifications; // Revert fallback
+           }
+          // Show error message to user
+      }
+  }, [dashboardData]); // Dependency array needs dashboardData and potentially its update methods
 
-    // Mapping des onglets aux widgets
-    const renderMap = {
-      overview: (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Suspense fallback={<LoadingIndicator />}>
-            <div className="md:col-span-2">
-              <ProfileWidget 
-                userData={user} 
-                loading={dashboardData.loading} 
-              />
-            </div>
-            <ApplicationsWidget 
-              candidatures={applications} 
-              loading={dashboardData.loading} 
-            />
-            {user?.role === 'entreprise' && (
-              <div className="col-span-1">
-                <OpportunitiesWidget 
-                  offres={opportunities} 
-                  loading={dashboardData.loading} 
-                />
+
+  // Memoized content rendering based on active tab
+  const renderContent = useMemo(() => {
+      if (dashboardData.loading && !dashboardData.profile) { // Show loading only if essential data isn't there yet
+          return <LoadingIndicator />;
+      }
+
+      if (dashboardData.error && !dashboardData.profile) { // Show error prominently if loading failed
+          return <ErrorDisplay error={dashboardData.error} />;
+      }
+
+      // Use safe defaults for data arrays
+      const notifications = Array.isArray(dashboardData.notifications) ? dashboardData.notifications : [];
+      const tests = Array.isArray(dashboardData.tests) ? dashboardData.tests : [];
+      const opportunities = Array.isArray(dashboardData.opportunities) ? dashboardData.opportunities : [];
+      const applications = Array.isArray(dashboardData.applications) ? dashboardData.applications : [];
+      const entretiens = Array.isArray(dashboardData.entretiens) ? dashboardData.entretiens : [];
+
+      // Map tab keys to titles and components
+      const tabConfig = {
+           overview: {
+               title: "Vue d'ensemble",
+               component: (
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 xl:gap-8">
+                      <div className="lg:col-span-3">
+                          <ProfileWidget userData={user} loading={dashboardData.loading} />
+                      </div>
+                      <div className="lg:col-span-1">
+                          <ApplicationsWidget candidatures={applications} loading={dashboardData.loading} />
+                      </div>
+                      <div className="lg:col-span-1">
+                           <NotificationsWidget
+                               notifications={notifications.slice(0, 5)} // Show recent 5
+                               loading={dashboardData.loading}
+                               onMarkAsRead={handleMarkNotificationAsRead}
+                           />
+                      </div>
+                       {user?.role === 'entreprise' && (
+                          <div className="lg:col-span-1">
+                              <OpportunitiesWidget offres={opportunities} loading={dashboardData.loading} />
+                          </div>
+                       )}
+                       {user?.role === 'etudiant' && (
+                          <div className="lg:col-span-1">
+                              <TestsWidget tests={tests} loading={dashboardData.loading} />
+                          </div>
+                       )}
+                       {/* Add more overview widgets here */}
+                  </div>
+               )
+           },
+           profile: { title: "Mon Profil", component: <ProfileWidget userData={user} loading={dashboardData.loading} /> },
+           applications: { title: "Mes Candidatures", component: <ApplicationsWidget candidatures={applications} loading={dashboardData.loading} /> },
+           notifications: { title: "Notifications", component: <NotificationsWidget notifications={notifications} loading={dashboardData.loading} onMarkAsRead={handleMarkNotificationAsRead} /> },
+           entretiens: { title: "Mes Entretiens", component: <EntretienWidget entretiens={entretiens} loading={dashboardData.loading} /> },
+           settings: { title: "Paramètres", component: <SettingsWidget userData={user} loading={dashboardData.loading} /> },
+           // Student specific
+           tests: { title: "Mes Tests", component: <TestsWidget tests={tests} loading={dashboardData.loading} />, roles: ['etudiant'] },
+           // Entreprise specific
+           offers: { title: "Mes Offres Publiées", component: <OpportunitiesWidget offres={opportunities} loading={dashboardData.loading} error={dashboardData.error} />, roles: ['entreprise'] },
+           candidates: { title: "Candidatures Reçues", component: <CandidatesContainer candidatures={applications} loading={dashboardData.loading} />, roles: ['entreprise'] },
+      };
+
+      const currentTabConfig = tabConfig[activeTab];
+
+      // Handle unknown tab or role mismatch
+      if (!currentTabConfig || (currentTabConfig.roles && !currentTabConfig.roles.includes(user?.role))) {
+          return (
+              <div className="bg-white rounded-xl shadow-md p-8 text-center border border-gray-200">
+                  <h2 className="text-xl font-semibold text-gray-700 mb-2">Contenu non disponible</h2>
+                  <p className="text-gray-500">L'onglet '{activeTab}' n'existe pas ou n'est pas accessible pour votre type de compte.</p>
               </div>
-            )}
-            <NotificationsWidget 
-              notifications={notifications.slice(0, 3)} 
-              loading={dashboardData.loading} 
-              onMarkAsRead={handleMarkNotificationAsRead}
-            />
-            {user?.role === 'etudiant' && tests.length > 0 && (
-              <div className="md:col-span-2">
-                <TestsWidget 
-                  tests={tests} 
-                  loading={dashboardData.loading} 
-                />
-              </div>
-            )}
-          </Suspense>
-        </div>
-      ),
-      profile: (
-        <Suspense fallback={<LoadingIndicator />}>
-          <ProfileWidget 
-            userData={user} 
-            loading={dashboardData.loading} 
-          />
-        </Suspense>
-      ),
-      applications: (
-        <Suspense fallback={<LoadingIndicator />}>
-          <ApplicationsWidget 
-            candidatures={applications} 
-            loading={dashboardData.loading} 
-          />
-        </Suspense>
-      ),
-      notifications: (
-        <Suspense fallback={<LoadingIndicator />}>
-          <div className="space-y-6">
-            <h1 className="text-2xl font-bold text-gray-800">Notifications</h1>
-            <NotificationsWidget 
-              notifications={notifications} 
-              loading={dashboardData.loading}
-              onMarkAsRead={handleMarkNotificationAsRead}
-            />
-          </div>
-        </Suspense>
-      ),
-      entretiens: (
-        <Suspense fallback={<LoadingIndicator />}>
-          <div className="space-y-6">
-            <h1 className="text-2xl font-bold text-gray-800">Entretiens planifiés</h1>
-            <EntretienWidget 
-              entretiens={dashboardData.entretiens || []}
-              loading={dashboardData.loading}
-            />
-          </div>
-        </Suspense>
-      ),
-      settings: (
-        <Suspense fallback={<LoadingIndicator />}>
-          <div className="space-y-6">
-            <h1 className="text-2xl font-bold text-gray-800">Paramètres</h1>
-            <SettingsWidget 
-              userData={user}
-              loading={dashboardData.loading}
-            />
-          </div>
-        </Suspense>
-      ),
-      tests: (
-        <Suspense fallback={<LoadingIndicator />}>
-          <div className="space-y-6">
-            <h1 className="text-2xl font-bold text-gray-800">Tests de compétences</h1>
-            <TestsWidget 
-              tests={tests}
-              loading={dashboardData.loading}
-            />
-          </div>
-        </Suspense>
-      ),
-      offers: (
-        <Suspense fallback={<LoadingIndicator />}>
-          <div className="space-y-6">
-            <h1 className="text-2xl font-bold text-gray-800">Mes offres publiées</h1>
-            {/* Debugging pour voir les données disponibles */}
-            {opportunities.length === 0 && (
-              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
-                <p className="text-yellow-700">Aucune offre n'est disponible. Vérifiez la console pour plus de détails.</p>
-              </div>
-            )}
-            <OpportunitiesWidget 
-              offres={opportunities} 
-              loading={dashboardData.loading}
-              error={dashboardData.error}
-            />
-          </div>
-        </Suspense>
-      ),
-      candidates: (
-        <Suspense fallback={<LoadingIndicator />}>
-          <div className="space-y-6">
-            <h1 className="text-2xl font-bold text-gray-800">Candidatures reçues</h1>
-            <CandidatesContainer 
-              candidatures={applications} 
-              loading={dashboardData.loading}
-            />
-          </div>
-        </Suspense>
-      ),
-    };
+          );
+      }
 
-    // Retourne le contenu pour l'onglet actif ou un message par défaut
-    return renderMap[activeTab] || (
-      <div className="bg-white rounded-lg shadow-sm p-6 text-center">
-        <p className="text-gray-600">Sélectionnez une option dans le menu</p>
-        <p className="text-gray-500 mt-2">Onglet actuel: {activeTab}</p>
-      </div>
-    );
-  }, [
-    activeTab, 
-    user, 
-    dashboardData,
-    handleMarkNotificationAsRead
-  ]);
+      return (
+          <div className="space-y-6">
+              {/* Optional: Display error inline if data for specific tab failed but others loaded */}
+               {dashboardData.error && activeTab !== 'overview' && <ErrorDisplay error={dashboardData.error} />}
 
-  // Gestionnaire de recherche
+               {/* Render the component for the active tab */}
+              <Suspense fallback={<LoadingIndicator message={`Chargement de ${currentTabConfig.title}...`} />}>
+                  {currentTabConfig.component}
+              </Suspense>
+          </div>
+      );
+
+  }, [activeTab, user, dashboardData, handleMarkNotificationAsRead]); // Dependencies for rendering
+
+  // Search handler (basic implementation)
   const handleSearch = useCallback((e) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      // Logique de recherche
-      console.log("Recherche:", searchQuery);
-    }
+      e.preventDefault();
+      if (searchQuery.trim()) {
+          console.log("Perform search for:", searchQuery);
+          // Implement actual search logic:
+          // - Navigate to a search results page/tab
+          // - Filter current view data (if applicable)
+          // - Make an API call for search results
+      }
   }, [searchQuery]);
 
-  // Ne pas afficher le dashboard si l'utilisateur n'est pas chargé
+  // Don't render dashboard until user is loaded (basic check)
   if (!user) {
-    return <LoadingIndicator />;
+      return (
+          <div className="min-h-screen flex items-center justify-center bg-gray-100">
+              <LoadingIndicator message="Chargement de la session..." />
+          </div>
+      );
   }
 
+  // Main dashboard structure
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      <Suspense fallback={<LoadingIndicator />}>
-        <DashboardSidebar
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          sidebarCollapsed={sidebarCollapsed}
-          setSidebarCollapsed={setSidebarCollapsed}
-          userData={user}
-          handleLogout={handleLogout}
-          unreadNotifications={
-            Array.isArray(dashboardData.notifications) 
-              ? dashboardData.notifications.filter(n => !n.lu).length 
-              : 0
-          }
-        />
-      </Suspense>
-      
-      {/* Contenu principal */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Suspense fallback={<LoadingIndicator />}>
-          <DashboardHeader
-            activeTab={activeTab}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            handleSearch={handleSearch}
-          />
-        </Suspense>
-        
-        {/* Corps principal */}
-        <main className="flex-1 overflow-y-auto p-6">
-          {renderContent}
-        </main>
+      <div className="min-h-screen bg-gray-100 flex text-gray-800">
+          {/* Sidebar */}
+          <Suspense fallback={<div className="w-16 md:w-64 bg-white shadow-md h-screen flex items-center justify-center"><LoadingIndicator /></div>}>
+              <DashboardSidebar
+                  activeTab={activeTab}
+                  setActiveTab={setActiveTab}
+                  sidebarCollapsed={sidebarCollapsed}
+                  setSidebarCollapsed={setSidebarCollapsed}
+                  userData={user}
+                  handleLogout={handleLogout}
+                  unreadNotificationsCount={
+                      Array.isArray(dashboardData.notifications)
+                          ? dashboardData.notifications.filter(n => !n.lu).length
+                          : 0
+                  }
+              />
+          </Suspense>
+
+          {/* Main Content Area */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+              {/* Header */}
+              <Suspense fallback={<div className="h-16 bg-white shadow-sm flex items-center justify-center"><LoadingIndicator /></div>}>
+                  <DashboardHeader
+                       // Pass the title dynamically
+                      title={useMemo(() => {
+                          const tabs = { overview: "Vue d'ensemble", profile: "Mon Profil", applications: "Mes Candidatures", notifications: "Notifications", entretiens: "Mes Entretiens", settings: "Paramètres", tests: "Mes Tests", offers: "Mes Offres", candidates: "Candidatures Reçues" };
+                          return tabs[activeTab] || "Dashboard";
+                      }, [activeTab])}
+                      searchQuery={searchQuery}
+                      setSearchQuery={setSearchQuery}
+                      handleSearch={handleSearch}
+                      userName={user?.nom || user?.name || 'Utilisateur'} // Display user name
+                      userRole={user?.role || ''} // Display user role
+                      userAvatar={user?.avatar_url || null} // Pass avatar URL
+                  />
+              </Suspense>
+
+              {/* Scrollable Main Body */}
+              <main className="flex-1 overflow-x-hidden overflow-y-auto p-6 md:p-8 bg-gray-100">
+                  {renderContent}
+              </main>
+          </div>
       </div>
-    </div>
   );
 };
 

@@ -11,7 +11,6 @@ import ResetPassword from './component/Authentication/ResetPassword';
 import Unauthorized from './component/Authentication/Unauthorized';
 import Dashboard from "./component/Dashboard/MinimalDashboard";
 import CreateOffreForm from "./component/CreateOffreForm";
-import OffresEtudiant from "./component/OffreEtudiant";
 import JobDetail from "./component/JobDetail";
 import SkillTest from "./component/SkillTest";
 import NotificationsCenter from "./component/NotificationsCenter";
@@ -34,6 +33,7 @@ import TestsList from './component/Dashboard/Tests/TestsList';
 import TestCreationForm from './component/Dashboard/Tests/TestCreationForm';
 import ProfileModification from './component/Dashboard/Interfaces/ProfileModification';
 import AdminDashboard from './component/Dashboard/Admin/AdminDashboard';
+import RecommendedOffers from './component/Dashboard/Interfaces/RecommendedOffres';
 function App() {
   return (
     <AuthProvider>
@@ -46,12 +46,12 @@ function App() {
               <Landing />
             </GuestRoute>
           } />
-            <Route path="/offres" element={
+            <Route path="/offers" element={
               <MainLayout>
                 <OffresList />
               </MainLayout>
             } />
-            <Route path="/offres/:id" element={
+            <Route path="/offers/:id" element={
               <MainLayout>
                 <JobDetail />
               </MainLayout>
@@ -82,6 +82,13 @@ function App() {
               <RoleRoute roles={['etudiant', 'entreprise']}>
                 <MainLayout>
                   <Dashboard />
+                </MainLayout>
+              </RoleRoute>
+            } />
+            <Route path="/offers/recommended" element={
+              <RoleRoute roles={['etudiant']}>
+                <MainLayout>
+                  <RecommendedOffers />
                 </MainLayout>
               </RoleRoute>
             } />

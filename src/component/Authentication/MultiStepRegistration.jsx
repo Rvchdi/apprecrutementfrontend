@@ -298,7 +298,25 @@ const MultiStepRegistration = () => {
   const steps = getStepInfo();
 
   return (
-    <div className="bg-white rounded-2xl shadow-xl overflow-hidden max-w-2xl mx-auto">
+    <div className="flex flex-col justify-center gap-4  min-h-screen bg-gray-100">
+      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-sm border-b border-gray-200 shadow-sm">
+              <div className="container mx-auto px-6 py-4 flex justify-between items-center">
+                <div
+                   onClick={() => navigate('/')}
+                   className="text-2xl gap-1 font-bold flex items-center text-teal-600 transition-transform hover:scale-105 duration-300 cursor-pointer"
+                 >
+                  <Briefcase className="h-8 w-8 text-teal-500"  strokeWidth={2} />
+                  JobConnect
+                </div>
+                <nav className="space-x-6 text-sm font-medium">
+                  <a href="/" className="text-gray-600 hover:text-teal-600 transition-colors duration-300">Accueil</a>
+                  <a href="/offres" className="text-gray-600 hover:text-teal-600 transition-colors duration-300">Offres</a>
+                  <a href="/about" className="text-gray-600 hover:text-teal-600 transition-colors duration-300">À propos</a>
+                </nav>
+              </div>
+            </header>
+    <div className="bg-white rounded-2xl shadow-xl overflow-hidden max-w-4xl mx-auto">
+      
       {/* Message de succès */}
       {successMessage && (
         <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
@@ -1046,6 +1064,7 @@ const MultiStepRegistration = () => {
           </motion.button>
         </div>
       </form>
+    </div>
     </div>
   );
 };

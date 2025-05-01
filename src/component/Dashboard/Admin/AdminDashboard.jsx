@@ -1,29 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  UsersIcon, 
-  BriefcaseIcon, 
-  TagIcon, 
-  ChartBarIcon, 
-  CogIcon,
-  TrashIcon, 
-  PencilIcon, 
-  PlusIcon,
-  UserIcon,
-  CheckIcon,
-  XIcon,
-  SearchIcon,
-  FilterIcon,
-  EyeIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
-  MenuIcon,
-  XCircleIcon
-} from '@heroicons/react/outline';
+import {
+    UsersIcon,
+    BriefcaseIcon,
+    TagIcon,
+    ChartBarIcon,
+    CogIcon,
+    TrashIcon, // Keep if used in child components
+    PencilIcon, // Keep if used in child components
+    PlusIcon, // Keep if used in child components
+    UserIcon,
+    CheckIcon, // Keep if used in child components
+    XIcon as XIconOutline, // Keep if used in child components
+    SearchIcon,
+    FilterIcon, // Keep if used in child components
+    EyeIcon, // Keep if used in child components
+    ChevronDownIcon, // Keep if used in child components
+    ChevronUpIcon, // Keep if used in child components
+    MenuIcon,
+    XIcon, // Using solid version for close buttons usually looks better
+    LogoutIcon, // More semantic icon for logout
+} from '@heroicons/react/outline'; // Consider using solid icons for some elements too if preferred
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import { useAuth } from '../../Authentication/AuthContext';
+import axios from 'axios'; // Make sure axios is configured (e.g., baseURL, interceptors for auth)
+import { useAuth } from '../../Authentication/AuthContext'; // Ensure path is correct
 
-// Composants
+// Widgets (Assuming these exist and are styled)
 import UserManagement from './Widgets/UserMangement';
 import CompetenceManagement from './Widgets/CompetenceManagement';
 import OfferManagement from './Widgets/OfferManagement';
@@ -31,187 +32,258 @@ import DashboardStats from './Widgets/DashboardStats';
 import Settings from './Widgets/Settings';
 
 const AdminDashboard = () => {
-  const { user, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    users: 0,
-    students: 0,
-    companies: 0,
-    offers: 0,
-    applications: 0,
-    competences: 0
-  });
+    const { user, logout } = useAuth();
+    const navigate = useNavigate(); // Initialize navigate
+    const [activeTab, setActiveTab] = useState('dashboard');
+    const [sidebarOpen, setSidebarOpen] = useState(false); // Default closed on mobile
+    const [loadingStats, setLoadingStats] = useState(true);
+    const [stats, setStats] = useState({
+        users: 0,
+        students: 0,
+        companies: 0,
+        offers: 0,
+        applications: 0,
+        competences: 0
+    });
 
-  // Vérification que l'utilisateur est bien un administrateur
-  useEffect(() => {
-    if (user && user.role !== 'admin') {
-      navigate('/unauthorized');
-    }
-  }, [user]);
+    // --- Hooks ---
 
-  // Charger les statistiques au montage du composant
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        setLoading(true);
-        
-        const response = await axios.get('/api/admin/dashboard');
-        setStats(response.data);
-        console.log('Statistiques:', response.data);
-        setLoading(false);
-      } catch (error) {
-        console.error('Erreur lors du chargement des statistiques:', error);
-        setLoading(false);
-      }
+    // Redirect if not admin
+    useEffect(() => {
+        // Add a check to ensure user data is loaded before redirecting
+        if (user && user.role !== 'admin') {
+            console.warn("Redirecting: User is not an admin.");
+            navigate('/unauthorized'); // Make sure this route exists
+        }
+    }, [user, navigate]);
+
+    // Fetch dashboard statistics
+    useEffect(() => {
+        // Only fetch if the user is confirmed to be an admin (or during initial load before confirmation)
+        if (!user || user.role === 'admin') {
+            const fetchStats = async () => {
+                try {
+                    setLoadingStats(true);
+                    // Ensure axios includes auth token (e.g., via interceptors)
+                    const response = await axios.get('/api/admin/dashboard');
+                    setStats(response.data);
+                    console.log('Dashboard Stats:', response.data);
+                } catch (error) {
+                    console.error('Error loading dashboard stats:', error);
+                    // Handle error display to the user if needed
+                } finally {
+                    setLoadingStats(false);
+                }
+            };
+            fetchStats();
+        } else {
+            // If user exists but is not admin, no need to fetch admin stats
+             setLoadingStats(false);
+        }
+    }, [user]); // Re-run if user changes (e.g., on login)
+
+    // --- Data & Configuration ---
+
+    const navItems = [
+        { id: 'dashboard', name: 'Tableau de bord', icon: ChartBarIcon },
+        { id: 'users', name: 'Utilisateurs', icon: UsersIcon },
+        { id: 'competences', name: 'Compétences', icon: TagIcon },
+        { id: 'offers', name: 'Offres', icon: BriefcaseIcon },
+        { id: 'settings', name: 'Paramètres', icon: CogIcon },
+    ];
+
+    // --- Event Handlers ---
+
+    const handleLogout = async () => {
+        try {
+            await logout();
+            navigate('/login'); // Redirect to login after logout
+        } catch (error) {
+            console.error('Logout failed:', error);
+            // Display error notification to user if needed
+        }
     };
 
-    fetchStats();
-  }, []);
+    const handleTabClick = (tabId) => {
+        setActiveTab(tabId);
+        if (window.innerWidth < 1024) { // Close sidebar on mobile after selection
+            setSidebarOpen(false);
+        }
+    };
 
-  // Navigation du sidebar
-  const navItems = [
-    { id: 'dashboard', name: 'Tableau de bord', icon: <ChartBarIcon className="w-6 h-6" /> },
-    { id: 'users', name: 'Utilisateurs', icon: <UsersIcon className="w-6 h-6" /> },
-    { id: 'competences', name: 'Compétences', icon: <TagIcon className="w-6 h-6" /> },
-    { id: 'offers', name: 'Offres', icon: <BriefcaseIcon className="w-6 h-6" /> },
-    { id: 'settings', name: 'Paramètres', icon: <CogIcon className="w-6 h-6" /> },
-  ];
+    // --- Content Rendering ---
 
-  const handleLogout = async () => {
-    try {
-      await logout();
-      navigate('/login');
-    } catch (error) {
-      console.error('Erreur lors de la déconnexion:', error);
-    }
-  };
+    const renderContent = () => {
+        // Ensure user context is available if widgets depend on it
+        if (!user && activeTab !== 'dashboard') return null; // Or a loading/placeholder state
 
-  // Rendu du contenu en fonction de l'onglet actif
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'dashboard':
-        return <DashboardStats stats={stats} loading={loading} />;
-      case 'users':
-        return <UserManagement />;
-      case 'competences':
-        return <CompetenceManagement />;
-      case 'offers':
-        return <OfferManagement />;
-      case 'settings':
-        return <Settings />;
-      default:
-        return <DashboardStats stats={dashboardStats} loading={loading} />;
-    }
-  };
+        switch (activeTab) {
+            case 'dashboard':
+                return <DashboardStats stats={stats} loading={loadingStats} />;
+            case 'users':
+                return <UserManagement />;
+            case 'competences':
+                return <CompetenceManagement />;
+            case 'offers':
+                return <OfferManagement />;
+            case 'settings':
+                return <Settings />;
+            default:
+                // Fallback to dashboard or show an error/empty state
+                return <DashboardStats stats={stats} loading={loadingStats} />;
+        }
+    };
 
-  return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Sidebar Mobile Toggle */}
-      <div className="fixed inset-0 z-20 transition-opacity bg-black opacity-50 lg:hidden" 
-           onClick={() => setSidebarOpen(false)}
-           style={{ display: sidebarOpen ? 'block' : 'none' }}></div>
+    // --- UI Rendering ---
 
-      {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-30 w-64 overflow-y-auto transition-all transform bg-white shadow-lg lg:translate-x-0 lg:static lg:inset-0 ${
-        sidebarOpen ? 'translate-x-0 ease-out' : '-translate-x-full ease-in'
-      }`}>
-        <div className="flex items-center justify-between p-4 border-b">
-          <div className="flex items-center space-x-2">
-            <BriefcaseIcon className="w-8 h-8 text-teal-600" />
-            <span className="text-xl font-bold text-gray-800">JobConnect</span>
-          </div>
-          <button onClick={() => setSidebarOpen(false)} className="p-2 rounded-md lg:hidden hover:bg-gray-100">
-            <XIcon className="w-6 h-6 text-gray-600" />
-          </button>
-        </div>
+    // Loading state for the entire dashboard before user role is confirmed?
+    // If user is null during initial load, you might want a full-screen loader.
+    // if (!user) {
+    //    return <div className="flex items-center justify-center h-screen">Loading User...</div>;
+    // }
 
-        <div className="p-4">
-          <div className="flex items-center p-3 mb-6 bg-gray-100 rounded-lg">
-            <div className="flex items-center justify-center w-10 h-10 mr-3 rounded-full bg-teal-500 text-white">
-              <UserIcon className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-700">
-                {user?.nom} {user?.prenom}
-              </p>
-              <p className="text-xs text-gray-500">Administrateur</p>
-            </div>
-          </div>
 
-          <ul className="space-y-1">
-            {navItems.map((item) => (
-              <li key={item.id}>
-                <button
-                  onClick={() => setActiveTab(item.id)}
-                  className={`flex items-center w-full px-4 py-3 text-sm rounded-lg ${
-                    activeTab === item.id
-                      ? 'bg-teal-50 text-teal-600'
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  <span className="mr-3">{item.icon}</span>
-                  <span>{item.name}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
+    return (
+        <div className="flex h-screen overflow-hidden bg-gray-100">
+            {/* Overlay for mobile sidebar */}
+            {sidebarOpen && (
+                <div
+                    className="fixed inset-0 z-30 bg-black bg-opacity-50 transition-opacity lg:hidden"
+                    onClick={() => setSidebarOpen(false)}
+                    aria-hidden="true"
+                ></div>
+            )}
 
-          <div className="pt-8 mt-8 border-t border-gray-200">
-            <button
-              onClick={handleLogout}
-              className="flex items-center w-full px-4 py-3 text-sm text-red-600 rounded-lg hover:bg-red-50"
+            {/* Sidebar */}
+            <div
+                className={`fixed inset-y-0 left-0 z-40 flex flex-col w-64 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out lg:static lg:inset-auto lg:translate-x-0 ${
+                    sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+                }`}
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="w-6 h-6 mr-3"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                />
-              </svg>
-              Déconnexion
-            </button>
-          </div>
-        </div>
-      </div>
+                {/* Sidebar Header */}
+                <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200 flex-shrink-0">
+                    <div className="flex items-center space-x-2">
+                        <BriefcaseIcon className="w-7 h-7 text-teal-600" />
+                        <span className="text-xl font-semibold text-gray-800 tracking-tight">JobConnect</span>
+                    </div>
+                    {/* Close button for mobile */}
+                    <button
+                        onClick={() => setSidebarOpen(false)}
+                        className="p-1 rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-700 lg:hidden"
+                        aria-label="Close sidebar"
+                    >
+                        <XIcon className="w-6 h-6" />
+                    </button>
+                </div>
 
-      {/* Main Content */}
-      <div className="flex flex-col flex-1 overflow-hidden">
-        <header className="flex items-center justify-between px-6 py-4 bg-white border-b">
-          <div className="flex items-center">
-            <button onClick={() => setSidebarOpen(true)} className="p-2 mr-4 rounded-md lg:hidden hover:bg-gray-100">
-              <MenuIcon className="w-6 h-6 text-gray-600" />
-            </button>
-            <h1 className="text-xl font-semibold text-gray-800">
-              {navItems.find(item => item.id === activeTab)?.name || 'Tableau de bord'}
-            </h1>
-          </div>
-          <div className="flex items-center space-x-4">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Rechercher..."
-                className="pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-              />
-              <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                {/* User Info */}
+                <div className="p-4">
+                   <div className="flex items-center p-3 mb-4 bg-gradient-to-r from-teal-50 to-cyan-50 rounded-lg shadow-sm">
+                        <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-teal-500 text-white shadow">
+                            {/* Placeholder Icon - Replace with user avatar if available */}
+                            <UserIcon className="w-5 h-5" />
+                        </div>
+                        <div className="ml-3 min-w-0 flex-1">
+                            <p className="text-sm font-medium text-gray-800 truncate">
+                                {user?.prenom} {user?.nom || 'Admin User'}
+                            </p>
+                            <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">
+                                Administrateur
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+
+                {/* Navigation */}
+                <nav className="flex-1 px-4 pb-4 space-y-1 overflow-y-auto">
+                    {navItems.map((item) => {
+                        const Icon = item.icon; // Get the component type
+                        const isActive = activeTab === item.id;
+                        return (
+                            <button
+                                key={item.id}
+                                onClick={() => handleTabClick(item.id)}
+                                className={`group flex items-center w-full px-3 py-2.5 text-sm rounded-md transition-colors duration-150 ease-in-out ${
+                                    isActive
+                                        ? 'bg-teal-50 text-teal-700 font-semibold'
+                                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                                }`}
+                                aria-current={isActive ? 'page' : undefined}
+                            >
+                                <Icon
+                                    className={`mr-3 flex-shrink-0 h-5 w-5 ${
+                                        isActive ? 'text-teal-600' : 'text-gray-400 group-hover:text-gray-500'
+                                    }`}
+                                    aria-hidden="true"
+                                />
+                                <span>{item.name}</span>
+                            </button>
+                        );
+                    })}
+                </nav>
+
+                {/* Sidebar Footer (Logout) */}
+                <div className="px-4 py-4 border-t border-gray-200 flex-shrink-0">
+                    <button
+                        onClick={handleLogout}
+                        className="group flex items-center w-full px-3 py-2.5 text-sm font-medium text-red-600 rounded-md hover:bg-red-50 hover:text-red-800 transition-colors duration-150 ease-in-out"
+                    >
+                        <LogoutIcon className="mr-3 h-5 w-5 text-red-500 group-hover:text-red-700" aria-hidden="true" />
+                        Déconnexion
+                    </button>
+                </div>
             </div>
-          </div>
-        </header>
 
-        <main className="flex-1 overflow-y-auto p-6">
-          {renderContent()}
-        </main>
-      </div>
-    </div>
-  );
+            {/* Main Content Area */}
+            <div className="flex flex-col flex-1 w-0 overflow-hidden">
+                {/* Header Bar */}
+                <header className="relative z-10 flex items-center justify-between h-16 px-4 sm:px-6 bg-white border-b border-gray-200 flex-shrink-0">
+                    {/* Mobile Menu Button */}
+                    <button
+                        onClick={() => setSidebarOpen(true)}
+                        className="p-1 rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-700 lg:hidden"
+                        aria-label="Open sidebar"
+                    >
+                        <MenuIcon className="w-6 h-6" />
+                    </button>
+
+                    {/* Section Title */}
+                    <div className="flex-1 min-w-0">
+                        <h1 className="text-lg font-medium leading-6 text-gray-900 sm:truncate ml-4 lg:ml-0">
+                            {navItems.find(item => item.id === activeTab)?.name || 'Tableau de bord'}
+                        </h1>
+                    </div>
+
+
+                    {/* Header Right Side (e.g., Search, Notifications, Profile) */}
+                    <div className="flex items-center space-x-4">
+                       {/* Search Bar - Keep it simple or enhance based on needs */}
+                       <div className="relative hidden md:block">
+                           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                               <SearchIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
+                           </div>
+                           <input
+                               type="text"
+                               placeholder="Rechercher..."
+                               className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-teal-500 focus:border-teal-500 sm:text-sm transition duration-150 ease-in-out"
+                           />
+                        </div>
+
+                        {/* Add other header items here if needed (e.g., Notification bell) */}
+                    </div>
+                </header>
+
+                {/* Main Content */}
+                <main className="flex-1 relative overflow-y-auto focus:outline-none">
+                    <div className="py-6 px-4 sm:px-6 lg:px-8">
+                        {/* Content Switches Here */}
+                        {renderContent()}
+                    </div>
+                </main>
+            </div>
+        </div>
+    );
 };
 
 export default AdminDashboard;

@@ -162,7 +162,7 @@ const OffresList = () => {
 
   // Naviguer vers la page de détail de l'offre
   const goToOffreDetail = (id) => {
-    navigate(`/offres/${id}`);
+    navigate(`/offers/${id}`);
   };
 
   // Extraire les localisations uniques pour les filtres

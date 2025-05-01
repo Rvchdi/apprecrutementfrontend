@@ -1,18 +1,22 @@
 import React, { useState } from 'react';
-import { 
-  Lock, 
-  Mail, 
+import {
+  Lock,
+  Mail,
   ArrowRight,
   Briefcase,
-  AlertCircle
+  AlertCircle,
+  Loader2, // Added for loading spinner
+  Facebook, // Example social icons (replace if needed)
+  Twitter,  // Example social icons (replace if needed)
+  Instagram // Example social icons (replace if needed)
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import loginImage from '../../assets/Login.png'; // Assurez-vous que le chemin est correct
+import loginImage from '../../assets/Login.png'; // Ensure the path is correct
 
-// Configuration d'axios pour les cookies CSRF et l'authentification
-axios.defaults.withCredentials = true; // Nécessaire pour les cookies Sanctum
-axios.defaults.baseURL = 'http://localhost:8000'; // Ajustez l'URL selon votre configuration
+// Axios configuration (remains the same)
+axios.defaults.withCredentials = true;
+axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'; // Use env variable
 
 const Login = () => {
   const navigate = useNavigate();
@@ -29,8 +33,7 @@ const Login = () => {
       ...prev,
       [name]: value
     }));
-    // Réinitialiser les erreurs quand l'utilisateur commence à taper
-    setError('');
+    setError(''); // Clear error on input change
   };
 
   const handleSubmit = async (e) => {
@@ -39,10 +42,7 @@ const Login = () => {
     setError('');
 
     try {
-      // Récupérer le cookie CSRF pour Laravel Sanctum
       await axios.get('/sanctum/csrf-cookie');
-
-      // Envoyer les identifiants à l'API de login
       const response = await axios.post('/api/auth/login', formData, {
         headers: {
           'Content-Type': 'application/json',
@@ -50,20 +50,18 @@ const Login = () => {
           'X-Requested-With': 'XMLHttpRequest'
         }
       });
-      
-      // Si l'authentification réussit, utilisez le token et redirigez
+
       const { token, user } = response.data;
-      
+
       localStorage.setItem('auth_token', token);
       localStorage.setItem('user_role', user.role);
       localStorage.setItem('user_id', user.id);
-      
-      // Configurer le header d'autorisation pour les futures requêtes
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      console.log('Token reçu:', token);
 
-      // Rediriger selon le rôle de l'utilisateur
-      switch(user.role) {
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      console.log('Login successful, token stored.');
+
+      // Redirect based on role
+      switch (user.role) {
         case 'etudiant':
           navigate('/dashboard/etudiant');
           break;
@@ -76,206 +74,225 @@ const Login = () => {
         default:
           navigate('/dashboard');
       }
-    } catch (error) {
-      console.error('Erreur de connexion:', error);
-      
-      if (error.response) {
-        // Gestion des erreurs du serveur (validation, identifiants incorrects, etc.)
-        if (error.response.status === 422) {
-          // Erreurs de validation
-          setError('Veuillez vérifier vos identifiants');
-          
-          if (error.response.data && error.response.data.errors) {
-            const errorMessages = Object.values(error.response.data.errors).flat();
-            if (errorMessages.length > 0) {
-              setError(errorMessages[0]);
-            }
-          }
-        } else if (error.response.status === 401) {
-          // Non autorisé
-          setError(error.response.data.message || 'Email ou mot de passe incorrect');
+    } catch (err) {
+      console.error('Login Error:', err);
+      if (err.response) {
+        if (err.response.status === 422) {
+          // Validation errors (might be more specific)
+          setError(err.response.data.message || 'Veuillez vérifier vos identifiants.');
+          // Optional: Extract specific field errors
+          // if (err.response.data && err.response.data.errors) {
+          //   const firstError = Object.values(err.response.data.errors).flat()[0];
+          //   setError(firstError || 'Veuillez vérifier vos identifiants.');
+          // }
+        } else if (err.response.status === 401) {
+          setError(err.response.data.message || 'Email ou mot de passe incorrect.');
         } else {
-          setError('Une erreur s\'est produite. Veuillez réessayer.');
+          setError(`Erreur serveur (${err.response.status}). Veuillez réessayer.`);
         }
-      } else if (error.request) {
-        // La requête a été faite mais pas de réponse reçue
-        setError('Impossible de se connecter au serveur. Vérifiez votre connexion internet.');
+      } else if (err.request) {
+        setError('Impossible de joindre le serveur. Vérifiez votre connexion.');
       } else {
-        // Erreurs réseau ou autres
-        setError('Une erreur inattendue s\'est produite. Veuillez réessayer.');
+        setError('Une erreur inattendue est survenue.');
       }
     } finally {
       setLoading(false);
     }
   };
 
-  const redirectToRegistration = () => {
-    navigate('/registration');
+  const redirectToRegistration = (type = 'student') => {
+    if (type === 'company') {
+      navigate('/registration/company');
+    } else {
+      navigate('/registration'); // Default to student registration
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-100 font-sans">
       {/* Header */}
-      <header className="bg-white border-b border-gray-100 text-gray-800 sticky top-0 z-10 shadow-sm">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="text-2xl font-bold flex items-center text-teal-600 transition-transform hover:scale-105 duration-300">
-            <Briefcase className="mr-2" size={32} />
+      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-sm border-b border-gray-200 shadow-sm">
+        <div className="container mx-auto px-6 py-4 flex justify-between items-center">
+          <div
+             onClick={() => navigate('/')}
+             className="text-2xl font-bold flex items-center text-teal-600 transition-transform hover:scale-105 duration-300 cursor-pointer"
+           >
+            <Briefcase className="mr-2 text-teal-500" size={30} strokeWidth={2} />
             JobConnect
           </div>
-          <nav className="space-x-6">
-            <a href="/" className="hover:text-teal-500 transition-colors duration-300">Accueil</a>
-            <a href="/offres" className="hover:text-teal-500 transition-colors duration-300">Offres</a>
-            <a href="/about" className="hover:text-teal-500 transition-colors duration-300">À propos</a>
+          <nav className="space-x-6 text-sm font-medium">
+            <a href="/" className="text-gray-600 hover:text-teal-600 transition-colors duration-300">Accueil</a>
+            <a href="/offres" className="text-gray-600 hover:text-teal-600 transition-colors duration-300">Offres</a>
+            <a href="/about" className="text-gray-600 hover:text-teal-600 transition-colors duration-300">À propos</a>
           </nav>
         </div>
       </header>
 
-      <div className="flex items-center justify-center min-h-[calc(100vh-76px)] p-4">
-        <div className="w-full max-w-4xl h-auto md:h-[600px] bg-white shadow-xl rounded-2xl overflow-hidden flex flex-col md:flex-row">
-          {/* Left Side - Illustration (Mobile: Top) */}
-          <div className="w-full md:w-7/12 relative bg-gradient-to-br from-teal-500 to-sky-400 text-white flex items-center justify-center order-1 md:order-none">
-            {/* Gradient Overlay */}
-            <div className="absolute inset-0 bg-gradient-to-br from-teal-600 to-sky-500 opacity-90 z-10"></div>
-            
-            {/* Illustration Content */}
-            <div className="relative z-20 w-full h-full p-6">
-              <div className="flex flex-col items-center justify-center h-full">
-                <div className="w-full max-w-[300px] transform hover:scale-105 transition-transform duration-500">
-                  <img src={loginImage} alt="Login Illustration" className="w-full drop-shadow-xl" />
-                </div>
-                <div className="mt-4 text-center">
-                  <h3 className="text-xl font-semibold text-white">Connexion Rapide</h3>
-                  <p className="text-teal-100 mt-2 text-sm">Rejoignez notre plateforme et simplifiez votre recherche professionnelle</p>
-                </div>
-              </div>
+      {/* Main Content */}
+      <main className="flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8" style={{ minHeight: 'calc(100vh - 73px)' }}>
+        <div className="w-full max-w-5xl bg-white shadow-2xl rounded-3xl overflow-hidden flex flex-col lg:flex-row">
+
+          {/* Left Side - Illustration */}
+          <div className="w-full lg:w-1/2 bg-gradient-to-br from-teal-500 to-sky-600 text-white flex flex-col items-center justify-center p-8 sm:p-12 order-1 lg:order-1 min-h-[300px] lg:min-h-0">
+            <div className="w-full max-w-xs sm:max-w-sm transform hover:scale-105 transition-transform duration-500 ease-out mb-6">
+              <img src={loginImage} alt="Connexion à JobConnect" className="w-full drop-shadow-xl" />
+            </div>
+            <div className="text-center">
+              <h3 className="text-2xl font-semibold text-white mb-2">Bienvenue sur JobConnect</h3>
+              <p className="text-teal-100 text-sm max-w-sm mx-auto">Connectez-vous pour accéder à votre espace personnalisé et découvrir de nouvelles opportunités.</p>
             </div>
           </div>
-          
-          {/* Right Side - Form (Mobile: Bottom) */}
-          <div className="w-full md:w-5/12 flex items-center justify-center p-6 order-2 md:order-none">
-            <form onSubmit={handleSubmit} className="w-full max-w-md">
-              <h2 className="text-2xl md:text-3xl font-bold mb-2 text-gray-800">
-                Bon Retour
-              </h2>
-              <p className="text-gray-600 mb-4 md:mb-6 text-sm md:text-base">
-                Connectez-vous à votre compte
-              </p>
 
-              {/* Message d'erreur */}
+          {/* Right Side - Form */}
+          <div className="w-full lg:w-1/2 flex items-center justify-center p-8 sm:p-12 order-2 lg:order-2">
+            <form onSubmit={handleSubmit} className="w-full max-w-md space-y-6">
+              <div>
+                <h2 className="text-3xl font-bold text-gray-900 mb-2">
+                  Bon Retour !
+                </h2>
+                <p className="text-gray-600 text-base">
+                  Connectez-vous pour continuer.
+                </p>
+              </div>
+
+              {/* Error Message */}
               {error && (
-                <div className="mb-4 bg-red-50 text-red-600 p-3 rounded-lg flex items-center text-sm">
-                  <AlertCircle size={16} className="mr-2" />
-                  {error}
+                <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md flex items-center text-sm shadow-sm" role="alert">
+                  <AlertCircle size={18} className="mr-3 text-red-600" />
+                  <span>{error}</span>
                 </div>
               )}
 
-              <div className="space-y-4 md:space-y-6">
+              {/* Email Input */}
+              <div className="relative group">
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                  Adresse Email
+                </label>
                 <div className="relative">
-                  <label className="block text-gray-700 mb-2 text-sm">Adresse Email</label>
-                  <div className="relative flex items-center group">
-                    <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none text-gray-400 group-focus-within:text-teal-500 transition-colors duration-300">
-                      <Mail size={16} />
-                    </div>
-                    <input
-                      type="email"
-                      name="email"
-                      placeholder="Entrez votre email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      className="w-full pl-10 p-2 md:p-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-300 focus:border-transparent transition-all duration-300 shadow-sm hover:shadow-md"
-                      required
-                      disabled={loading}
-                    />
-                  </div>
-                </div>
-                
-                <div className="relative">
-                  <label className="block text-gray-700 mb-2 text-sm">Mot de Passe</label>
-                  <div className="relative flex items-center group">
-                    <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none text-gray-400 group-focus-within:text-teal-500 transition-colors duration-300">
-                      <Lock size={16} />
-                    </div>
-                    <input
-                      type="password"
-                      name="password"
-                      placeholder="Entrez votre mot de passe"
-                      value={formData.password}
-                      onChange={handleInputChange}
-                      className="w-full pl-10 p-2 md:p-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-300 focus:border-transparent transition-all duration-300 shadow-sm hover:shadow-md"
-                      required
-                      disabled={loading}
-                    />
-                  </div>
-                  <a href="/forgot-password" className="text-xs md:text-sm text-teal-500 hover:text-teal-700 mt-1 inline-block">
-                    Mot de passe oublié?
-                  </a>
-                </div>
-                
-                <button 
-                  type="submit"
-                  className={`w-full bg-teal-500 text-white p-2 md:p-3 rounded-lg hover:bg-teal-600 transition-all duration-300 hover:shadow-lg flex items-center justify-center text-sm md:text-base ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
-                  disabled={loading}
-                >
-                  {loading ? 'Connexion en cours...' : (
-                    <>Connexion <ArrowRight className="ml-2" size={16} /></>
-                  )}
-                </button>
-              </div>
-              
-              {/* Register Button */}
-              <div className="text-center mt-6">
-                <p className="text-gray-600 text-xs md:text-sm mb-2">
-                  Vous n'avez pas de compte?
-                </p>
-                <button 
-                  type="button"
-                  onClick={redirectToRegistration}
-                  className="w-full border border-teal-500 text-teal-500 p-2 md:p-3 rounded-lg hover:bg-teal-50 transition-all duration-300 hover:shadow-md flex items-center justify-center text-sm md:text-base"
-                  disabled={loading}
-                >
-                  Créer un compte étudiant
-                </button>
-              </div>
-              <div className="mt-4 relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-200"></div>
-                </div>
-                <div className="relative flex justify-center">
-                  <span className="bg-white px-4 text-xs text-gray-500">ou</span>
+                   <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-teal-600 transition-colors duration-300 pointer-events-none">
+                    <Mail size={18} />
+                  </span>
+                  <input
+                    id="email"
+                    type="email"
+                    name="email"
+                    placeholder="votre.email@exemple.com"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    className="peer block w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg text-base placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition duration-300 ease-in-out shadow-sm hover:shadow-md"
+                    required
+                    disabled={loading}
+                  />
                 </div>
               </div>
 
-              <button 
-                type="button"
-                onClick={() => navigate('/registration/company')}
-                className="w-full mt-4 bg-blue-600 text-white p-2 md:p-3 rounded-lg hover:bg-blue-700 transition-all duration-300 hover:shadow-lg flex items-center justify-center text-sm md:text-base"
+              {/* Password Input */}
+              <div className="relative group">
+                 <div className="flex justify-between items-center mb-1">
+                   <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                     Mot de Passe
+                   </label>
+                   <a href="/forgot-password" className="text-sm text-teal-600 hover:text-teal-800 hover:underline transition-colors duration-300">
+                     Oublié ?
+                   </a>
+                 </div>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-teal-600 transition-colors duration-300 pointer-events-none">
+                    <Lock size={18} />
+                  </span>
+                  <input
+                    id="password"
+                    type="password"
+                    name="password"
+                    placeholder="••••••••"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    className="peer block w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg text-base placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition duration-300 ease-in-out shadow-sm hover:shadow-md"
+                    required
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                className={`w-full flex items-center justify-center py-3 px-6 border border-transparent rounded-lg shadow-sm text-base font-semibold text-white bg-teal-600 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 transition duration-300 ease-in-out ${
+                  loading ? 'opacity-70 cursor-not-allowed' : ''
+                }`}
                 disabled={loading}
               >
-                <Briefcase className="mr-2" size={16} />
-                Inscription Entreprise
+                {loading ? (
+                  <>
+                    <Loader2 className="animate-spin mr-2" size={20} />
+                    Connexion en cours...
+                  </>
+                ) : (
+                  <>
+                    Se Connecter <ArrowRight className="ml-2" size={20} />
+                  </>
+                )}
               </button>
+
+              {/* Divider */}
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                  <div className="w-full border-t border-gray-300" />
+                </div>
+                <div className="relative flex justify-center">
+                  <span className="bg-white px-3 text-sm text-gray-500">
+                    Ou
+                  </span>
+                </div>
+              </div>
+
+              {/* Registration Buttons */}
+              <div className="space-y-3">
+                 <p className="text-center text-sm text-gray-600">
+                   Nouveau sur JobConnect ?
+                 </p>
+                <button
+                  type="button"
+                  onClick={() => redirectToRegistration('student')}
+                  className="w-full flex items-center justify-center py-3 px-6 border border-teal-500 text-teal-600 rounded-lg hover:bg-teal-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-400 transition duration-300 ease-in-out text-sm font-medium"
+                  disabled={loading}
+                >
+                  Créer un compte Étudiant
+                </button>
+                <button
+                  type="button"
+                  onClick={() => redirectToRegistration('company')}
+                  className="w-full flex items-center justify-center py-3 px-6 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 transition duration-300 ease-in-out"
+                  disabled={loading}
+                >
+                  <Briefcase className="mr-2" size={16} />
+                  Inscrire mon Entreprise
+                </button>
+              </div>
             </form>
           </div>
         </div>
-      </div>
+      </main>
 
       {/* Footer */}
-      <footer className="bg-white text-gray-800 py-8 border-t border-gray-100">
-        <div className="container mx-auto px-4 text-center">
-          <div className="flex justify-center space-x-4 mb-4">
-            <a href="#" className="bg-gray-100 p-2 rounded-full hover:bg-teal-50 hover:text-teal-500 transition-all duration-300">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path fillRule="evenodd" d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" clipRule="evenodd"></path></svg>
-            </a>
-            <a href="#" className="bg-gray-100 p-2 rounded-full hover:bg-teal-50 hover:text-teal-500 transition-all duration-300">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.29 20.251c7.547 0 11.675-6.253 11.675-11.675 0-.178 0-.355-.012-.53A8.348 8.348 0 0022 5.92a8.19 8.19 0 01-2.357.646 4.118 4.118 0 001.804-2.27 8.224 8.224 0 01-2.605.996 4.107 4.107 0 00-6.993 3.743 11.65 11.65 0 01-8.457-4.287 4.106 4.106 0 001.27 5.477A4.072 4.072 0 012.8 9.713v.052a4.105 4.105 0 003.292 4.022 4.095 4.095 0 01-1.853.07 4.108 4.108 0 003.834 2.85A8.233 8.233 0 012 18.407a11.616 11.616 0 006.29 1.84"></path></svg>
-            </a>
-            <a href="#" className="bg-gray-100 p-2 rounded-full hover:bg-teal-50 hover:text-teal-500 transition-all duration-300">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path fillRule="evenodd" d="M12.315 2c2.43 0 2.784.013 3.808.06 1.064.049 1.791.218 2.427.465a4.902 4.902 0 011.772 1.153 4.902 4.902 0 011.153 1.772c.247.636.416 1.363.465 2.427.048 1.067.06 1.407.06 4.123v.08c0 2.643-.012 2.987-.06 4.043-.049 1.064-.218 1.791-.465 2.427a4.902 4.902 0 01-1.153 1.772 4.902 4.902 0 01-1.772 1.153c-.636.247-1.363.416-2.427.465-1.067.048-1.407.06-4.123.06h-.08c-2.643 0-2.987-.012-4.043-.06-1.064-.049-1.791-.218-2.427-.465a4.902 4.902 0 01-1.772-1.153 4.902 4.902 0 01-1.153-1.772c-.247-.636-.416-1.363-.465-2.427-.047-1.024-.06-1.379-.06-3.808v-.63c0-2.43.013-2.784.06-3.808.049-1.064.218-1.791.465-2.427a4.902 4.902 0 011.153-1.772A4.902 4.902 0 015.45 2.525c.636-.247 1.363-.416 2.427-.465C8.901 2.013 9.256 2 11.685 2h.63zm-.081 1.802h-.468c-2.456 0-2.784.011-3.807.058-.975.045-1.504.207-1.857.344-.467.182-.8.398-1.15.748-.35.35-.566.683-.748 1.15-.137.353-.3.882-.344 1.857-.047 1.023-.058 1.351-.058 3.807v.468c0 2.456.011 2.784.058 3.807.045.975.207 1.504.344 1.857.182.466.399.8.748 1.15.35.35.683.566 1.15.748.353.137.882.3 1.857.344 1.054.048 1.37.058 4.041.058h.08c2.597 0 2.917-.01 3.96-.058.976-.045 1.505-.207 1.858-.344.466-.182.8-.398 1.15-.748.35-.35.566-.683.748-1.15.137-.353.3-.882.344-1.857.048-1.055.058-1.37.058-4.041v-.08c0-2.597-.01-2.917-.058-3.96-.045-.976-.207-1.505-.344-1.858a3.097 3.097 0 00-.748-1.15 3.098 3.098 0 00-1.15-.748c-.353-.137-.882-.3-1.857-.344-1.023-.047-1.351-.058-3.807-.058zM12 6.865a5.135 5.135 0 110 10.27 5.135 5.135 0 010-10.27zm0 1.802a3.333 3.333 0 100 6.666 3.333 3.333 0 000-6.666zm5.338-3.205a1.2 1.2 0 110 2.4 1.2 1.2 0 010-2.4z" clipRule="evenodd"></path></svg>
-            </a>
-          </div>
-          <p className="text-gray-500 text-sm">© 2025 JobConnect. Tous droits réservés.</p>
-        </div>
-      </footer>
+       <footer className="bg-white text-gray-600 py-8 border-t border-gray-200 mt-auto">
+         <div className="container mx-auto px-6 text-center">
+           {/* Optional Social Links */}
+           {/* <div className="flex justify-center space-x-5 mb-4">
+             <a href="#" className="text-gray-400 hover:text-teal-600 transition-colors duration-300">
+               <Facebook size={20} />
+             </a>
+             <a href="#" className="text-gray-400 hover:text-teal-600 transition-colors duration-300">
+               <Twitter size={20} />
+             </a>
+             <a href="#" className="text-gray-400 hover:text-teal-600 transition-colors duration-300">
+               <Instagram size={20} />
+             </a>
+           </div> */}
+           <p className="text-sm">&copy; {new Date().getFullYear()} JobConnect. Tous droits réservés.</p>
+           <p className="text-xs text-gray-400 mt-1">Développé avec ❤️</p>
+         </div>
+       </footer>
     </div>
   );
 };
